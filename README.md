@@ -45,7 +45,7 @@ La calibration est enregistrée dans le navigateur (`localStorage`) avec la cam�
 
 ## Calibration automatique (3 méthodes à comparer)
 
-L'écran de démarrage propose trois boutons. Chacun analyse 5 images (3 pour OpenCV), combine les résultats (médiane), puis **affiche ce qu'il a trouvé** (contour ou marqueurs en vert) avec la confiance et la stabilité. Tu valides avec *Enregistrer* ou tu ajustes les repères au doigt. *Annuler* revient à l'écran de choix. Un tableau compare les méthodes déjà essayées.
+L'écran de démarrage propose trois boutons. Après un appui, un **compte à rebours de 5 s** (réglable de 0 à 30 s, avec un bip à chaque seconde et un bouton *Annuler*) laisse le temps d'aller placer la feuille. Chaque méthode analyse ensuite 5 images (3 pour OpenCV), combine les résultats (médiane), puis **affiche ce qu'il a trouvé** (contour ou marqueurs en vert) avec la confiance et la stabilité. Tu valides avec *Enregistrer* ou tu ajustes les repères au doigt. *Annuler* revient à l'écran de choix. Un tableau compare les méthodes déjà essayées.
 
 1. **Feuille blanche** (JavaScript pur, aucun téléchargement) : cherche une zone claire aux proportions d'une A4 verticale, puis mesure les bords haut et bas au gradient sous-pixel. Il faut un fond **plus sombre** que la feuille. Les murs blancs, les fenêtres et les tapis clairs peuvent tromper la détection : un avertissement s'affiche si une autre forme comparable est trouvée.
 2. **Feuille blanche — OpenCV** : OpenCV.js (≈ 10 Mo, téléchargé à la première utilisation depuis docs.opencv.org) trouve le quadrilatère de la feuille, puis les bords sont remesurés comme en 1. En effet, les contours OpenCV sont décalés d'environ 1 px vers l'intérieur, ce qui donnait jusqu'à 5 % d'erreur sur une petite feuille. C'est plus robuste qu'en 1 face aux fonds chargés. Pour un usage hors ligne : `npm pack @techstark/opencv-js@4.10.0-release.1`, copier `dist/opencv.js` dans `vendor/` et renseigner `./vendor/opencv.js` dans *Paramètres → Calibration*.
@@ -119,7 +119,7 @@ Puis, dans *Paramètres → Analyse IA* : Base MediaPipe = `./vendor/mediapipe`,
 ```bash
 node --test tests/*.test.mjs                 # 65 tests : conversions, repères, calibration, détecteur, détection de feuille
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
-python3 tests/e2e_calibration.py /chemin/chrome /chemin/opencv.js   # 9 vérifications : les 3 boutons via fausse caméra
+python3 tests/e2e_calibration.py /chemin/chrome /chemin/opencv.js   # 11 vérifications : les 3 boutons via fausse caméra
 pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 21 vérifications de bout en bout
 ```
 

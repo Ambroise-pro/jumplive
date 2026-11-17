@@ -101,6 +101,12 @@
   th:first-child, td:first-child { text-align: left; }
   pre.diag { margin: 0; white-space: pre-wrap; font-size: 12px; color: var(--mute); }
 
+  .countdown { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); z-index: 8; display: flex; align-items: center;
+    gap: 18px; padding: 10px 14px 10px 26px; border-radius: 22px; background: rgba(11, 15, 20, .82); border: 2px solid var(--orange); }
+  .countdown .cdnum { font-size: clamp(72px, 12vw, 150px); font-weight: 800; line-height: 1; color: var(--orange);
+    font-variant-numeric: tabular-nums; min-width: 1ch; text-align: center; }
+  .countdown .cdtxt { font-size: clamp(16px, 2vw, 22px); font-weight: 700; max-width: 260px; }
+  .countdown.go .cdnum { color: var(--green); } .countdown.go { border-color: var(--green); }
   .wizard { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); z-index: 15; background: var(--panel);
     border-left: 1px solid var(--line); overflow-y: auto; padding: 16px 16px 30px; display: flex; flex-direction: column; gap: 12px; }
   .wizard h2 { margin: 0; font-size: 22px; }
@@ -137,6 +143,11 @@
       <button id="editSave" class="primary">Enregistrer</button>
     </div>
     <div id="hud" class="hud"></div>
+    <div id="countdown" class="countdown hidden" role="timer" aria-live="assertive">
+      <div class="cdnum" id="cdNum">5</div>
+      <div class="cdtxt" id="cdTxt">Placez la feuille</div>
+      <button id="cdCancel">Annuler</button>
+    </div>
     <div id="review" class="review hidden">
       <div class="row">
         <button id="rvPrev" aria-label="Image précédente">◀ 1</button>
@@ -192,6 +203,7 @@
     <button id="wzManual">✋ Repères à la main</button>
     <a class="btnlink" href="feuille-calibration.html" target="_blank" rel="noopener">🖨 Feuille à marqueurs</a>
   </div>
+  <label class="f">Délai pour placer la feuille (s)<input type="number" step="1" min="0" max="30" data-s="detectDelaySec"></label>
   <label class="f">Distance mesurée entre les centres des carrés (cm)<input type="number" step="0.1" min="5" max="28" data-s="markerDistCm"></label>
   <label class="c"><input type="checkbox" data-s="showWizard"> Afficher cet écran au démarrage</label>
   <div class="btnrow"><button id="wzContinue" class="primary">Continuer</button></div>
@@ -297,7 +309,7 @@ const DEF = {
   mpBase: MP_DEFAULT, modelUrl: '',
   bufferSec: 4, bufferWidth: 480, bufferFps: 30,
   showCal: true, showSkeleton: true, showHud: true, distanceNote: '',
-  showWizard: true, opencvUrl: 'https://docs.opencv.org/4.10.0/opencv.js', markerDistCm: 20,
+  showWizard: true, detectDelaySec: 5, opencvUrl: 'https://docs.opencv.org/4.10.0/opencv.js', markerDistCm: 20,
   det: Object.fromEntries(DET_KEYS.map(k => [k, DEFAULTS[k]])),
 };
 const saved = store.get(K.settings, {});
@@ -536,7 +548,7 @@ async function loadModel() {
 }
 
 function runAI(t) {
-  if (S.mode !== 'ai' || R || edit || wizardOpen || aiState !== 'ready' || aiBusy) return;
+  if (S.mode !== 'ai' || R || edit || wizardOpen || detecting || aiState !== 'ready' || aiBusy) return;
   if (t - lastAiT < 1000 / S.aiMaxFps - 3) return;
   aiBusy = true; lastAiT = t;
   const t0 = performance.now();
@@ -948,7 +960,7 @@ function updateUI(force = false) {
   else if (S.mode === 'ai' && aiState === 'error') banner = 'Modèle IA non chargé (' + aiErr + '). Le mode manuel reste disponible.';
   else if (lowLight && vw()) banner = 'Faible luminosité : la détection peut être moins fiable.';
   const b = $('#banner');
-  b.classList.toggle('hidden', !banner || !!edit); b.classList.toggle('info', info);
+  b.classList.toggle('hidden', !banner || !!edit || detecting); b.classList.toggle('info', info);
   if (banner) setText(b, banner);
 
   // état / message
@@ -1059,7 +1071,7 @@ function syncInputs() {
   });
   document.querySelectorAll('[data-d]').forEach(el => { el.value = S.det[el.dataset.d]; });
 }
-const NUM_S = ['markerDistCm', 'aiMaxFps', 'minHipVis', 'minFootVis', 'bufferSec', 'bufferWidth', 'bufferFps'];
+const NUM_S = ['detectDelaySec', 'markerDistCm', 'aiMaxFps', 'minHipVis', 'minFootVis', 'bufferSec', 'bufferWidth', 'bufferFps'];
 document.querySelectorAll('[data-s]').forEach(el => el.addEventListener('change', () => {
   const k = el.dataset.s;
   let v = el.type === 'checkbox' ? el.checked : el.value;
@@ -1170,6 +1182,32 @@ function loadOpenCV() {
   return cvPromise;
 }
 
+// Compte à rebours affiché en grand sur l'image (lisible de loin pendant qu'on place la feuille), avec bip.
+let cdCancelled = false, audioCtx = null;
+function beep(freq = 880, ms = 120) {
+  try {
+    audioCtx ??= new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = freq; g.gain.value = 0.15; o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + ms / 1000);
+  } catch { /* son indisponible */ }
+}
+function showCountdown(num, txt, go = false) {
+  const el = $('#countdown'); el.classList.remove('hidden'); el.classList.toggle('go', go);
+  setText($('#cdNum'), String(num)); setText($('#cdTxt'), txt);
+}
+function hideCountdown() { $('#countdown').classList.add('hidden'); }
+async function countdown(sec, label) {
+  cdCancelled = false;
+  for (let s = sec; s > 0; s--) {
+    showCountdown(s, label);
+    beep(660, 90);
+    for (let k = 0; k < 10; k++) { await new Promise(r => setTimeout(r, 100)); if (cdCancelled) return false; }
+  }
+  return !cdCancelled;
+}
+$('#cdCancel').onclick = () => { cdCancelled = true; };
+
 function wzMsg(txt, cls = '') { const el = $('#wzMsg'); el.className = 'wmsg ' + cls; el.textContent = txt; }
 
 async function runDetection(method) {
@@ -1185,7 +1223,16 @@ async function runDetection(method) {
       fn = (img) => detectSheetOpenCV(cv, img);
     } else if (method === 'markers') fn = (img) => detectMarkers(img, { distCm: S.markerDistCm });
     else fn = (img) => detectWhiteSheet(img);
+    const delay = Math.max(0, Math.min(30, Math.round(S.detectDelaySec || 0)));
+    const what = method === 'markers' ? 'la feuille à marqueurs' : 'la feuille blanche';
+    if (delay > 0) {
+      closeWizard(); updateUI(true);
+      if (!(await countdown(delay, `Placez ${what} au niveau du bassin, puis éloignez-vous`))) {
+        hideCountdown(); openWizard(); wzMsg('Détection annulée.'); return;
+      }
+    }
     const K = method === 'opencv' ? 3 : 5, results = [];
+    showCountdown('✓', 'Ne bougez plus : analyse…', true); beep(990, 220);
     for (let i = 0; i < K; i++) {
       wzMsg(`Analyse de l’image ${i + 1}/${K}…`);
       await new Promise(r => setTimeout(r, 90));
@@ -1194,8 +1241,10 @@ async function runDetection(method) {
     const res = combineDetections(results);
     res.method = method;
     wzResults[method] = res;
+    hideCountdown();
     if (!res.ok || res.success < Math.ceil(K / 2)) {
       res.ok = false;
+      openWizard();
       wzMsg(`Échec : ${res.reason || 'détection instable'} (${res.success}/${K} images).`, 'err');
       updateWizard();
       return;
@@ -1203,6 +1252,7 @@ async function runDetection(method) {
     wzMsg('');
     startEdit('cal', res, true);
   } catch (e) {
+    hideCountdown(); openWizard();
     wzResults[method] = { ok: false, method, reason: e?.message || String(e) };
     wzMsg(`Échec : ${e?.message || e}`, 'err');
     updateWizard();

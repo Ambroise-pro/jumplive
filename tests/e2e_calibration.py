@@ -64,7 +64,7 @@ try:
         ctx = b.new_context(viewport={'width': 1280, 'height': 800}, permissions=['camera'])
         if os.path.exists(f'{cache}/opencv.js'):
             ctx.add_init_script("""if (!localStorage.getItem('jml.settings.v1'))
-              localStorage.setItem('jml.settings.v1', JSON.stringify({ opencvUrl: './tests/.cache/opencv.js', mode: 'manual' }));""")
+              localStorage.setItem('jml.settings.v1', JSON.stringify({ opencvUrl: './tests/.cache/opencv.js', mode: 'manual', detectDelaySec: 1 }));""")
         page = ctx.new_page(); errors = []
         page.on('pageerror', lambda e: errors.append(str(e)))
         ev = page.evaluate
@@ -73,6 +73,19 @@ try:
         check('écran de calibration affiché au démarrage', ev('JML.wizardOpen'))
         page.wait_for_timeout(800)
         page.screenshot(path=f'{OUT}/01_assistant.png')
+
+        # compte à rebours avant détection + annulation
+        def set_num(sel, v):
+            page.fill(sel, str(v)); page.dispatch_event(sel, 'change')
+        set_num('input[data-s="detectDelaySec"]', 3)
+        page.click('[data-detect="white"]'); page.wait_for_timeout(300)
+        n1 = page.inner_text('#cdNum'); vis = ev('!document.querySelector("#countdown").classList.contains("hidden")')
+        page.screenshot(path=f'{OUT}/01b_compte_a_rebours.png')
+        page.wait_for_timeout(1100); n2 = page.inner_text('#cdNum')
+        check('compte à rebours affiché et décroissant', vis and n1 == '3' and n2 == '2' and not ev('JML.wizardOpen'), f'{n1} → {n2}')
+        page.click('#cdCancel'); page.wait_for_timeout(400)
+        check('annulation du compte à rebours', ev('JML.wizardOpen') and 'annulée' in page.inner_text('#wzMsg') and not ev('JML.edit'))
+        set_num('input[data-s="detectDelaySec"]', 1)
 
         def detect(method, timeout=90000):
             page.click(f'[data-detect="{method}"]')
@@ -104,7 +117,7 @@ try:
         page.reload(); page.wait_for_function('document.querySelector("#video").videoWidth > 0', timeout=15000); page.wait_for_timeout(500)
         check('après rechargement : assistant affiché, calibration valide', ev('JML.wizardOpen') and ev('JML.calStatus.valid'))
         # distance de marqueurs corrigée (impression non à 100 %)
-        page.fill('input[data-s="markerDistCm"]', '19.5'); page.dispatch_event('input[data-s="markerDistCm"]', 'change')
+        set_num('input[data-s="markerDistCm"]', 19.5)
         r, msg = detect('markers')
         check('distance de marqueurs saisie prise en compte', r and abs(r['ref'] - 19.5) < 1e-9, msg)
         page.click('#editCancel'); page.click('#wzContinue')
