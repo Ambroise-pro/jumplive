@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>JumpMeasure LIVE</title>
+<style>
+  :root {
+    --bg: #0b0f14; --panel: #131a22; --panel2: #1b2430; --line: #2a3644; --text: #eef3f8; --mute: #8fa1b3;
+    --blue: #38bdf8; --orange: #fb923c; --green: #4ade80; --amber: #fbbf24; --red: #f87171; --violet: #c084fc;
+    --r: 14px; --touch: 52px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 16px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  button, select, input { font: inherit; color: inherit; }
+  button { min-height: var(--touch); border: 1px solid var(--line); background: var(--panel2); border-radius: var(--r);
+    padding: 0 18px; cursor: pointer; font-weight: 600; touch-action: manipulation; user-select: none; }
+  button:active { transform: scale(.98); }
+  button:disabled { opacity: .4; }
+  button.primary { background: var(--blue); color: #04121c; border-color: transparent; }
+  button.warn { background: #3a1d1d; border-color: #6b2b2b; }
+  .hidden { display: none !important; }
+
+  #app { position: fixed; inset: 0; display: grid; grid-template-columns: 1fr minmax(300px, 30vw); }
+  #stage { position: relative; overflow: hidden; background: #000; min-height: 0; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+  #video { position: absolute; width: 2px; height: 2px; opacity: 0; pointer-events: none; left: 0; top: 0; }
+
+  #side { display: flex; flex-direction: column; gap: 12px; padding: 14px; background: var(--panel);
+    border-left: 1px solid var(--line); overflow-y: auto; min-height: 0; }
+  #side > * { flex-shrink: 0; }
+  .brand { display: flex; align-items: center; justify-content: space-between; font-size: 18px; letter-spacing: .02em; }
+  .brand b { color: var(--blue); }
+  #gear { position: relative; width: var(--touch); padding: 0; font-size: 24px; overflow: hidden; }
+  #gear::after { content: ""; position: absolute; left: 0; bottom: 0; height: 4px; width: 0; background: var(--orange); }
+  #gear.pressing::after { width: 100%; transition: width 1s linear; }
+  .pill { align-self: flex-start; padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: 15px;
+    background: var(--panel2); border: 1px solid var(--line); }
+  .pill.WAITING { color: var(--mute); } .pill.STABILIZING { color: var(--amber); border-color: var(--amber); }
+  .pill.READY { color: #04121c; background: var(--green); } .pill.JUMPING { color: #04121c; background: var(--orange); }
+  .pill.RESULT { color: #04121c; background: var(--blue); } .pill.MANUAL { color: #04121c; background: var(--violet); }
+  .pill.REVIEW { color: #04121c; background: var(--orange); }
+  .msg { font-size: clamp(18px, 2.2vw, 26px); font-weight: 600; min-height: 2.6em; }
+  .result { display: flex; align-items: baseline; justify-content: center; gap: 8px; padding: 6px 0;
+    border-radius: var(--r); background: #0e141b; border: 1px solid var(--line); container-type: inline-size; }
+  #resultVal { font-size: clamp(56px, 30cqi, 180px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .result .unit { font-size: clamp(24px, 3vw, 44px); color: var(--mute); font-weight: 700; }
+  .result.uncertain #resultVal { color: var(--amber); }
+  .result.manual #resultVal { color: var(--orange); }
+  .info { color: var(--mute); font-size: 14px; min-height: 1.4em; text-align: center; }
+  .info .tag { display: inline-block; padding: 2px 8px; border-radius: 6px; background: #3b2f0b; color: var(--amber); font-weight: 700; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; font-size: 18px; }
+  .seg button.on { background: var(--blue); color: #04121c; }
+  .actions { display: grid; gap: 10px; }
+  .actions button { min-height: 64px; font-size: 20px; }
+  .compare { font-size: 14px; color: var(--mute); border-top: 1px solid var(--line); padding-top: 10px; }
+  .compare b { color: var(--text); }
+
+  .banner { position: absolute; left: 12px; right: 12px; top: 12px; z-index: 5; padding: 12px 16px; border-radius: var(--r);
+    background: rgba(60, 20, 20, .92); border: 1px solid #7f1d1d; font-weight: 600; }
+  .banner.info { background: rgba(30, 40, 20, .92); border-color: #4d6b1f; }
+  .hud { position: absolute; left: 10px; bottom: 8px; z-index: 3; font-size: 12px; color: #cbd5e1;
+    background: rgba(0,0,0,.45); padding: 3px 8px; border-radius: 8px; pointer-events: none; font-variant-numeric: tabular-nums; }
+  .editbar { position: absolute; left: 12px; right: 12px; top: 12px; z-index: 6; display: flex; flex-wrap: wrap; gap: 10px;
+    align-items: center; padding: 12px; border-radius: var(--r); background: rgba(19, 26, 34, .94); border: 1px solid var(--orange); }
+  .editbar .txt { flex: 1 1 260px; font-weight: 600; }
+  .editbar .txt small { display: block; color: var(--mute); font-weight: 400; }
+
+  .review { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; padding: 10px; display: grid; gap: 8px;
+    background: rgba(11, 15, 20, .92); border-top: 1px solid var(--line); }
+  .review .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .review input[type=range] { flex: 1 1 200px; height: var(--touch); accent-color: var(--orange); }
+  .review .lbl { font-size: 14px; color: var(--mute); min-width: 150px; font-variant-numeric: tabular-nums; }
+  .review button { padding: 0 14px; }
+  .review button.ref { border-color: var(--blue); }
+  .review button.top { border-color: var(--orange); }
+  .review button.on.ref { background: var(--blue); color: #04121c; }
+  .review button.on.top { background: var(--orange); color: #04121c; }
+  .review .note { font-size: 12px; color: var(--mute); width: 100%; }
+
+  .drawer { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.55); display: flex; justify-content: flex-end; }
+  .drawer .sheet { width: min(560px, 100%); height: 100%; background: var(--panel); border-left: 1px solid var(--line);
+    overflow-y: auto; padding: 16px 16px 40px; }
+  .drawer h2 { margin: 0 0 4px; font-size: 22px; display: flex; justify-content: space-between; align-items: center; }
+  details { border: 1px solid var(--line); border-radius: var(--r); margin-top: 12px; background: #10161d; }
+  summary { padding: 14px 16px; font-weight: 700; cursor: pointer; font-size: 17px; }
+  details > div { padding: 0 16px 16px; display: grid; gap: 10px; }
+  label.f { display: grid; grid-template-columns: 1fr minmax(120px, 46%); align-items: center; gap: 10px; font-size: 15px; }
+  label.f select, label.f input[type=number], label.f input[type=text] { min-height: 44px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--panel2); padding: 0 10px; width: 100%; }
+  label.c { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+  label.c input { width: 24px; height: 24px; }
+  .btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
+  .muted { color: var(--mute); font-size: 14px; }
+  .ok { color: var(--green); } .bad { color: var(--red); } .warnc { color: var(--amber); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  pre.diag { margin: 0; white-space: pre-wrap; font-size: 12px; color: var(--mute); }
+
+  .wizard { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); z-index: 15; background: var(--panel);
+    border-left: 1px solid var(--line); overflow-y: auto; padding: 16px 16px 30px; display: flex; flex-direction: column; gap: 12px; }
+  .wizard h2 { margin: 0; font-size: 22px; }
+  .wbtns { display: grid; gap: 10px; }
+  .wopt { display: grid; text-align: left; gap: 4px; padding: 12px 16px; min-height: 76px; }
+  .wopt b { font-size: 18px; } .wopt span { font-weight: 400; color: var(--mute); font-size: 14px; }
+  .wopt.busy { border-color: var(--orange); }
+  .wmsg { min-height: 1.4em; font-weight: 600; }
+  .wmsg.err { color: var(--red); } .wmsg.ok { color: var(--green); }
+  a.btnlink { display: inline-flex; align-items: center; min-height: var(--touch); padding: 0 18px; border-radius: var(--r);
+    border: 1px solid var(--line); background: var(--panel2); color: var(--text); text-decoration: none; font-weight: 600; }
+  @media (max-aspect-ratio: 1/1) {
+    .wizard { top: auto; height: 56vh; width: 100%; border-left: 0; border-top: 1px solid var(--line); }
+    #app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 46vh) 1fr; }
+    #side { border-left: 0; border-top: 1px solid var(--line); }
+    .msg { min-height: 0; }
+    .actions { grid-template-columns: 1fr 1fr; }
+    #resultVal { font-size: clamp(56px, 24cqi, 140px); }
+  }
+  @media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+    #side { gap: 8px; padding: 10px; } .actions button { min-height: 52px; } #resultVal { font-size: min(72px, 30cqi); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <main id="stage">
+    <canvas id="view" aria-label="Aperçu caméra"></canvas>
+    <video id="video" playsinline muted autoplay></video>
+    <div id="banner" class="banner hidden" role="alert"></div>
+    <div id="editbar" class="editbar hidden">
+      <div class="txt" id="editTxt"></div>
+      <button id="editCancel">Annuler</button>
+      <button id="editSave" class="primary">Enregistrer</button>
+    </div>
+    <div id="hud" class="hud"></div>
+    <div id="review" class="review hidden">
+      <div class="row">
+        <button id="rvPrev" aria-label="Image précédente">◀ 1</button>
+        <input id="rvSlider" type="range" min="0" max="0" value="0" step="1" aria-label="Image">
+        <button id="rvNext" aria-label="Image suivante">1 ▶</button>
+        <span class="lbl" id="rvLbl"></span>
+      </div>
+      <div class="row">
+        <button id="rvSetRef" class="ref">Image de départ</button>
+        <button id="rvGoRef" class="ref" title="Aller à l’image de départ">⇤ —</button>
+        <button id="rvSetTop" class="top">Image du sommet</button>
+        <button id="rvGoTop" class="top" title="Aller à l’image du sommet">⇥ —</button>
+        <button id="rvUp" aria-label="Monter la ligne active">▲</button>
+        <button id="rvDown" aria-label="Descendre la ligne active">▼</button>
+        <button id="rvZoom">Zoom ×1</button>
+        <button id="rvSave" class="primary">Valider</button>
+        <button id="rvClose">Fermer</button>
+      </div>
+      <div class="note" id="rvNote"></div>
+    </div>
+  </main>
+
+  <aside id="side">
+    <div class="brand"><span>JumpMeasure <b>LIVE</b></span>
+      <button id="gear" title="Paramètres : maintenir 1 seconde" aria-label="Paramètres administrateur (maintenir 1 s)">⚙</button></div>
+    <div id="pill" class="pill WAITING">En attente</div>
+    <div id="msg" class="msg">Démarrage de la caméra…</div>
+    <div id="resultBox" class="result"><span id="resultVal">—</span><span class="unit">cm</span></div>
+    <div id="resultInfo" class="info"></div>
+    <div class="seg" role="group" aria-label="Mode de mesure">
+      <button data-mode="ai">IA</button><button data-mode="manual">Manuel</button>
+    </div>
+    <div class="actions">
+      <button id="btnNew">Nouveau saut</button>
+      <button id="btnVerify">Vérifier</button>
+    </div>
+    <div id="compare" class="compare"></div>
+  </aside>
+</div>
+
+<div id="wizard" class="wizard hidden" role="dialog" aria-label="Calibration">
+  <h2>Calibration</h2>
+  <div id="wzStatus" class="muted"></div>
+  <div class="muted">Placez l’étalon <b>vertical</b>, à l’emplacement du saut, <b>au niveau du bassin</b> (même distance de la caméra que le sauteur), puis choisissez une méthode.</div>
+  <div class="wbtns">
+    <button class="wopt" data-detect="white"><b>1 · Feuille blanche</b><span>Détection simple : n’importe quelle feuille A4 blanche, sur un fond plus sombre</span></button>
+    <button class="wopt" data-detect="opencv"><b>2 · Feuille blanche — OpenCV</b><span>Détection de contours (≈ 10 Mo téléchargés la première fois)</span></button>
+    <button class="wopt" data-detect="markers"><b>3 · Feuille à marqueurs</b><span>La plus fiable : feuille imprimée à 100 % (deux carrés noirs)</span></button>
+  </div>
+  <div id="wzMsg" class="wmsg" role="status"></div>
+  <div id="wzTable"></div>
+  <div class="btnrow">
+    <button id="wzManual">✋ Repères à la main</button>
+    <a class="btnlink" href="feuille-calibration.html" target="_blank" rel="noopener">🖨 Feuille à marqueurs</a>
+  </div>
+  <label class="f">Distance mesurée entre les centres des carrés (cm)<input type="number" step="0.1" min="5" max="28" data-s="markerDistCm"></label>
+  <label class="c"><input type="checkbox" data-s="showWizard"> Afficher cet écran au démarrage</label>
+  <div class="btnrow"><button id="wzContinue" class="primary">Continuer</button></div>
+</div>
+
+<div id="admin" class="drawer hidden">
+  <div class="sheet">
+    <h2>Paramètres <button id="adminClose">Fermer</button></h2>
+    <div class="muted">Réservé à l’enseignant·e. Toute modification de caméra, de résolution, de zoom ou d’orientation invalide la calibration.</div>
+
+    <details open><summary>Calibration</summary><div>
+      <div id="calStatus"></div>
+      <div class="btnrow">
+        <button id="btnWizard" class="primary">Assistant (détection auto)</button>
+        <button id="btnCal">Placer les repères à la main</button>
+        <button id="btnZone">Définir la zone de saut</button>
+        <button id="btnZoneAll">Zone = image entière</button>
+        <button id="btnCalClear" class="warn">Effacer la calibration</button>
+      </div>
+      <label class="f">URL d’OpenCV.js (méthode 2)<input type="text" data-s="opencvUrl" spellcheck="false"></label>
+      <label class="f">Distance caméra–sujet (cm, indicative)<input type="text" inputmode="decimal" data-s="distanceNote" placeholder="ex. 300"></label>
+      <div class="muted">Placez une feuille A4 <b>verticale</b> (29,7 cm) dans le <b>même plan de profondeur que le bassin</b> du sauteur (au centre de la zone), puis positionnez les deux repères sur ses bords haut et bas. La distance saisie est une simple note : elle ne sert pas au calcul.</div>
+    </div></details>
+
+    <details><summary>Caméra</summary><div>
+      <label class="f">Caméra<select id="selCam" data-s="deviceId"><option value="">Automatique</option></select></label>
+      <label class="f">Résolution demandée<select data-s="resolution">
+        <option value="640x480">640 × 480</option><option value="1280x720">1280 × 720</option><option value="1920x1080">1920 × 1080</option>
+      </select></label>
+      <label class="f">Caméra par défaut<select data-s="facing"><option value="user">Avant (écran face au sauteur)</option><option value="environment">Arrière</option></select></label>
+      <label class="c"><input type="checkbox" data-s="mirror"> Affichage miroir (n’affecte pas la mesure)</label>
+      <label class="f">Cadrage à l’écran<select data-s="fitMode"><option value="contain">Image entière</option><option value="cover">Remplir (image recadrée)</option></select></label>
+      <div class="btnrow"><button id="btnCamApply" class="primary">Appliquer / redémarrer la caméra</button></div>
+      <div class="muted" id="camInfo"></div>
+    </div></details>
+
+    <details><summary>Analyse IA</summary><div>
+      <div id="aiInfo" class="muted"></div>
+      <label class="f">Modèle<select data-s="model"><option value="lite">Lite (rapide)</option><option value="full">Full (plus précis)</option><option value="heavy">Heavy (lent)</option></select></label>
+      <label class="f">Processeur<select data-s="delegate"><option value="GPU">GPU (repli CPU auto)</option><option value="CPU">CPU</option></select></label>
+      <label class="f">Analyses IA max / s<input type="number" min="5" max="60" step="1" data-s="aiMaxFps"></label>
+      <label class="f">Décollage : bassin ≥ (cm)<input type="number" min="1" max="15" step="0.5" data-d="takeoffHipCm"></label>
+      <label class="f">Décollage : chaque pied ≥ (cm)<input type="number" min="0.5" max="10" step="0.5" data-d="takeoffFootCm"></label>
+      <label class="f">Réception : pieds à moins de (cm)<input type="number" min="0.5" max="6" step="0.5" data-d="landingFootCm"></label>
+      <label class="f">Immobilité : écart-type max (cm)<input type="number" min="0.3" max="4" step="0.1" data-d="stableMaxStdCm"></label>
+      <label class="f">Durée d’immobilité (ms)<input type="number" min="300" max="3000" step="50" data-d="stableWindowMs"></label>
+      <label class="f">Délai avant saut suivant (ms)<input type="number" min="500" max="10000" step="100" data-d="resultHoldMs"></label>
+      <label class="f">Confiance min. hanches<input type="number" min="0.1" max="0.95" step="0.05" data-s="minHipVis"></label>
+      <label class="f">Confiance min. pieds<input type="number" min="0.1" max="0.95" step="0.05" data-s="minFootVis"></label>
+      <label class="f">Base MediaPipe (JS + wasm)<input type="text" data-s="mpBase" spellcheck="false"></label>
+      <label class="f">URL du modèle (vide = officiel)<input type="text" data-s="modelUrl" spellcheck="false" placeholder="./models/pose_landmarker_lite.task"></label>
+      <div class="btnrow"><button id="btnAiReload">Recharger le modèle</button><button id="btnDetDefaults">Seuils par défaut</button></div>
+    </div></details>
+
+    <details><summary>Tampon vidéo (mode manuel)</summary><div>
+      <label class="f">Durée conservée<select data-s="bufferSec" data-type="num"><option value="3">3 s</option><option value="4">4 s</option><option value="5">5 s</option></select></label>
+      <label class="f">Largeur des images<select data-s="bufferWidth" data-type="num"><option value="360">360 px</option><option value="480">480 px</option><option value="640">640 px</option><option value="960">960 px</option><option value="0">native</option></select></label>
+      <label class="f">Cadence max<select data-s="bufferFps" data-type="num"><option value="15">15 img/s</option><option value="24">24 img/s</option><option value="30">30 img/s</option><option value="60">60 img/s</option></select></label>
+      <div class="muted" id="bufInfo"></div>
+    </div></details>
+
+    <details><summary>Affichage</summary><div>
+      <label class="c"><input type="checkbox" data-s="showCal"> Afficher les repères de calibration</label>
+      <label class="c"><input type="checkbox" data-s="showSkeleton"> Afficher le squelette (IA)</label>
+      <label class="c"><input type="checkbox" data-s="showHud"> Afficher les performances</label>
+      <div class="btnrow"><button id="btnFull">Plein écran</button></div>
+    </div></details>
+
+    <details><summary>Mesures de la session (IA / manuel)</summary><div>
+      <div class="muted">Anonymes, conservées seulement tant que la page est ouverte.</div>
+      <div id="histTable"></div>
+      <div class="btnrow"><button id="btnCsv">Exporter CSV</button><button id="btnHistClear" class="warn">Effacer</button></div>
+    </div></details>
+
+    <details><summary>Diagnostic</summary><div><pre class="diag" id="diag"></pre></div></details>
+  </div>
+</div>
+
+<script type="module">
+import {
+  A4_CM, cmPerPixel, detenteCm, computeFit, zoomFit, nativeToView, viewToNative,
+  validateCalibration, extractPose, inZone, JumpDetector, STATES, DEFAULTS,
+} from './core.js';
+import { detectWhiteSheet, detectMarkers, detectSheetOpenCV, combineDetections } from './a4detect.js';
+
+/* ================= Réglages et persistance ================= */
+const K = { settings: 'jml.settings.v1', cal: 'jml.calibration.v1', zone: 'jml.zone.v1' };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* stockage indisponible */ } },
+  del(k) { try { localStorage.removeItem(k); } catch { } },
+};
+const MP_DEFAULT = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const MODEL_URLS = {
+  lite: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+  full: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task',
+  heavy: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task',
+};
+const DET_KEYS = ['takeoffHipCm', 'takeoffFootCm', 'landingFootCm', 'stableMaxStdCm', 'stableWindowMs', 'resultHoldMs'];
+const DEF = {
+  deviceId: '', deviceLabel: '', resolution: '1280x720', facing: 'user', mirror: true, fitMode: 'contain',
+  mode: 'ai', model: 'lite', delegate: 'GPU', aiMaxFps: 30, minHipVis: 0.6, minFootVis: 0.4,
+  mpBase: MP_DEFAULT, modelUrl: '',
+  bufferSec: 4, bufferWidth: 480, bufferFps: 30,
+  showCal: true, showSkeleton: true, showHud: true, distanceNote: '',
+  showWizard: true, opencvUrl: 'https://docs.opencv.org/4.10.0/opencv.js', markerDistCm: 20,
+  det: Object.fromEntries(DET_KEYS.map(k => [k, DEFAULTS[k]])),
+};
+const saved = store.get(K.settings, {});
+const S = { ...DEF, ...saved, det: { ...DEF.det, ...(saved.det || {}) } };
+const saveS = () => store.set(K.settings, S);
+let cal = store.get(K.cal, null);
+let zone = store.get(K.zone, null); // { x, y, w, h, videoWidth, videoHeight } en px natifs
+
+/* ================= État ================= */
+const $ = (s) => document.querySelector(s);
+const video = $('#video'), canvas = $('#view'), ctx = canvas.getContext('2d');
+let stream = null, track = null, camGen = 0, camError = null, curDeviceId = '', curLabel = '', curZoom = null;
+let cssW = 0, cssH = 0, dirty = true;
+let calStatus = { valid: false, reasons: ['Calibration manquante'], warnings: [] };
+let zoneActive = null;
+let lowLight = false, lastLumaT = 0;
+const detector = new JumpDetector(S.det);
+let landmarker = null, aiState = 'idle', aiErr = '', aiDelegate = '', aiBusy = false, lastAiT = 0;
+let lastPoses = [];
+const poseLog = []; // { t, hipY } pour pré-positionner les lignes du mode manuel
+const perf = { camT: [], aiT: [], capT: [], aiMs: 0, capSkipped: 0 };
+const hasRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+// Tampon circulaire
+const buf = { frames: [], pending: 0, gen: 0, w: 0, h: 0 };
+let lastCapT = 0;
+const capCanvas = document.createElement('canvas'), capCtx = capCanvas.getContext('2d');
+const lumaCanvas = document.createElement('canvas'); lumaCanvas.width = 32; lumaCanvas.height = 18;
+const lumaCtx = lumaCanvas.getContext('2d', { willReadFrequently: true });
+let lastClip = null; // { frames, ai, entryId, frozenAt }
+let R = null;        // revue manuelle en cours
+let edit = null;     // édition calibration / zone
+let drag = null, loupe = null;
+const history = []; let histN = 0;
+let shownResult = null;
+
+/* ================= Utilitaires ================= */
+const fmt = (v, d = 1) => Number.isFinite(v) ? v.toFixed(d).replace('.', ',') : '—';
+function setText(el, txt) { if (el.textContent !== txt) el.textContent = txt; }
+function setHTML(el, html) { if (el.innerHTML !== html) el.innerHTML = html; }
+function rate(arr, now, win = 1000) { while (arr.length && now - arr[0] > win) arr.shift(); return arr.length * 1000 / win; }
+const vw = () => video.videoWidth, vh = () => video.videoHeight;
+const cmPx = () => calStatus.valid ? cal.cmPerPx : NaN;
+
+/* ================= Caméra ================= */
+const CAM_ERRORS = {
+  NotAllowedError: 'Accès à la caméra refusé. Autorisez la caméra dans les réglages du navigateur puis rechargez la page.',
+  SecurityError: 'Accès à la caméra bloqué (HTTPS ou localhost requis).',
+  NotFoundError: 'Aucune caméra disponible sur cet appareil.',
+  OverconstrainedError: 'Caméra indisponible avec ces paramètres.',
+  NotReadableError: 'Caméra indisponible : déjà utilisée par une autre application ?',
+  AbortError: 'Démarrage de la caméra interrompu.',
+};
+
+function stopCamera() {
+  camGen++;
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; track = null;
+}
+
+async function startCamera() {
+  stopCamera();
+  const gen = camGen;
+  camError = null;
+  if (!window.isSecureContext) { camError = 'Caméra impossible : ouvrez l’application en HTTPS (ou sur localhost).'; updateUI(true); return; }
+  if (!navigator.mediaDevices?.getUserMedia) { camError = 'Ce navigateur ne permet pas d’accéder à la caméra.'; updateUI(true); return; }
+  const [w, h] = S.resolution.split('x').map(Number);
+  const mk = (withId) => ({ audio: false, video: {
+    width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 },
+    ...(withId && S.deviceId ? { deviceId: { exact: S.deviceId } } : { facingMode: { ideal: S.facing } }),
+  } });
+  let s;
+  try { s = await navigator.mediaDevices.getUserMedia(mk(true)); }
+  catch (e) {
+    if (S.deviceId && ['OverconstrainedError', 'NotFoundError'].includes(e.name)) {
+      try { s = await navigator.mediaDevices.getUserMedia(mk(false)); } catch (e2) { e = e2; }
+    }
+    if (!s) { camError = CAM_ERRORS[e.name] || `Erreur caméra : ${e.message || e.name}`; updateUI(true); return; }
+  }
+  if (gen !== camGen) { s.getTracks().forEach(t => t.stop()); return; }
+  stream = s; track = s.getVideoTracks()[0];
+  const st = track.getSettings ? track.getSettings() : {};
+  curDeviceId = st.deviceId || S.deviceId || ''; curLabel = track.label || ''; curZoom = st.zoom ?? null;
+  track.addEventListener('ended', () => { camError = 'La caméra s’est arrêtée (déconnectée ou réquisitionnée).'; updateUI(true); });
+  video.srcObject = s;
+  try { await video.play(); } catch { /* lecture auto gérée par muted+playsinline */ }
+  await new Promise(r => { if (video.videoWidth) r(); else video.addEventListener('loadedmetadata', r, { once: true }); });
+  await listCameras();
+  onVideoDims();
+  scheduleFrame(gen);
+  requestWakeLock();
+}
+
+async function listCameras() {
+  try {
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    const sel = $('#selCam');
+    sel.innerHTML = '<option value="">Automatique</option>' + devs.map((d, i) =>
+      `<option value="${d.deviceId}">${(d.label || 'Caméra ' + (i + 1)).replace(/</g, '&lt;')}</option>`).join('');
+    sel.value = devs.some(d => d.deviceId === S.deviceId) ? S.deviceId : '';
+  } catch { }
+}
+
+video.addEventListener('resize', onVideoDims);
+
+function onVideoDims() {
+  if (!vw()) return;
+  // nouvelles dimensions → l'ancien tampon n'est plus cohérent
+  clearBuffer();
+  revalidate();
+  dirty = true;
+}
+
+/* ================= Calibration ================= */
+function revalidate() {
+  const devMatch = cal && (cal.deviceId === curDeviceId || (cal.deviceLabel && cal.deviceLabel === curLabel));
+  calStatus = validateCalibration(cal, {
+    videoWidth: vw(), videoHeight: vh(), deviceId: devMatch ? cal?.deviceId : curDeviceId, zoom: curZoom,
+  });
+  zoneActive = zone && zone.videoWidth === vw() && zone.videoHeight === vh() ? zone : null;
+  detector.setCalibration(cal?.cmPerPx, calStatus.valid);
+  detector.setZone(zoneActive);
+  updateUI(true);
+}
+
+const METHOD_FR = { manual: 'repères à la main', white: 'feuille blanche', opencv: 'feuille blanche (OpenCV)', markers: 'feuille à marqueurs' };
+function saveCalibration(p1, p2, refCm = A4_CM, method = 'manual', detection = null) {
+  cal = {
+    p1, p2, refCm, method, detection, cmPerPx: cmPerPixel(p1, p2, refCm), heightPx: Math.hypot(p2.x - p1.x, p2.y - p1.y),
+    videoWidth: vw(), videoHeight: vh(), deviceId: curDeviceId, deviceLabel: curLabel, zoom: curZoom,
+    distanceNote: S.distanceNote, date: new Date().toISOString(),
+  };
+  store.set(K.cal, cal);
+  revalidate();
+}
+
+/* ================= Boucle image ================= */
+function scheduleFrame(gen) {
+  if (gen !== camGen) return;
+  if (hasRVFC) video.requestVideoFrameCallback((now) => { onFrame(now); scheduleFrame(gen); });
+  else {
+    let lastTime = -1;
+    const tick = () => {
+      if (gen !== camGen) return;
+      if (video.currentTime !== lastTime) { lastTime = video.currentTime; onFrame(performance.now()); }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+}
+
+function onFrame(t) {
+  perf.camT.push(t);
+  if (!vw()) return;
+  capture(t);
+  runAI(t);
+  if (t - lastLumaT > 1000) { lastLumaT = t; checkLight(); }
+  if (!R) dirty = true;
+}
+
+function checkLight() {
+  try {
+    lumaCtx.drawImage(video, 0, 0, 32, 18);
+    const d = lumaCtx.getImageData(0, 0, 32, 18).data;
+    let s = 0; for (let i = 0; i < d.length; i += 4) s += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    lowLight = s / (d.length / 4) < 45;
+  } catch { }
+}
+
+/* ================= Tampon circulaire ================= */
+function bufferDims() {
+  const W = vw(), H = vh();
+  const bw = S.bufferWidth > 0 ? Math.min(S.bufferWidth, W) : W;
+  return [Math.round(bw), Math.round(bw * H / W)];
+}
+
+function capture(t) {
+  if (R || !window.createImageBitmap) return;
+  if (t - lastCapT < 1000 / S.bufferFps - 3) return;
+  if (buf.pending > 2) { perf.capSkipped++; return; }
+  lastCapT = t;
+  const [bw, bh] = bufferDims();
+  if (capCanvas.width !== bw || capCanvas.height !== bh) { capCanvas.width = bw; capCanvas.height = bh; }
+  capCtx.drawImage(video, 0, 0, bw, bh);
+  buf.pending++;
+  const gen = buf.gen;
+  createImageBitmap(capCanvas).then(bmp => {
+    buf.pending--;
+    if (gen !== buf.gen) { bmp.close?.(); return; }
+    buf.frames.push({ t, bmp }); buf.w = bw; buf.h = bh;
+    perf.capT.push(t);
+    const limit = t - S.bufferSec * 1000;
+    while (buf.frames.length && buf.frames[0].t < limit) buf.frames.shift().bmp.close?.();
+  }).catch(() => { buf.pending--; });
+}
+
+function clearBuffer() {
+  buf.gen++;
+  buf.frames.forEach(f => f.bmp.close?.()); buf.frames = [];
+}
+
+function takeBuffer(fromT = -Infinity) {
+  const keep = [], drop = [];
+  for (const f of buf.frames) (f.t >= fromT ? keep : drop).push(f);
+  drop.forEach(f => f.bmp.close?.());
+  buf.frames = []; buf.gen++;
+  return keep;
+}
+
+function setLastClip(clip) {
+  if (lastClip && lastClip !== clip && lastClip !== R?.clip) lastClip.frames.forEach(f => f.bmp.close?.());
+  lastClip = clip;
+}
+
+/* ================= IA (MediaPipe Pose Landmarker) ================= */
+async function loadModel() {
+  if (aiState === 'loading') return;
+  aiState = 'loading'; aiErr = ''; updateUI(true);
+  const slow = setTimeout(() => { if (aiState === 'loading') { aiErr = 'Chargement long : connexion lente ?'; updateUI(true); } }, 20000);
+  try {
+    landmarker?.close?.(); landmarker = null;
+    const base = (S.mpBase || MP_DEFAULT).replace(/\/$/, '');
+    const vision = await import(/* @vite-ignore */ base + '/vision_bundle.mjs');
+    const fileset = await vision.FilesetResolver.forVisionTasks(base + '/wasm');
+    const make = (delegate) => vision.PoseLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: S.modelUrl || MODEL_URLS[S.model], delegate },
+      runningMode: 'VIDEO', numPoses: 2,
+      minPoseDetectionConfidence: 0.5, minPosePresenceConfidence: 0.5, minTrackingConfidence: 0.5,
+    });
+    try { landmarker = await make(S.delegate); aiDelegate = S.delegate; }
+    catch (e) { if (S.delegate !== 'GPU') throw e; landmarker = await make('CPU'); aiDelegate = 'CPU (repli)'; }
+    aiState = 'ready'; aiErr = '';
+  } catch (e) {
+    aiState = 'error'; aiErr = e?.message || String(e);
+    console.error('[JumpMeasure] modèle IA', e);
+  } finally { clearTimeout(slow); updateUI(true); }
+}
+
+function runAI(t) {
+  if (S.mode !== 'ai' || R || edit || wizardOpen || aiState !== 'ready' || aiBusy) return;
+  if (t - lastAiT < 1000 / S.aiMaxFps - 3) return;
+  aiBusy = true; lastAiT = t;
+  const t0 = performance.now();
+  let res;
+  try { res = landmarker.detectForVideo(video, t); }
+  catch (e) { aiBusy = false; aiState = 'error'; aiErr = 'Erreur pendant l’analyse : ' + (e?.message || e); updateUI(true); return; }
+  perf.aiMs = perf.aiMs ? perf.aiMs * 0.9 + (performance.now() - t0) * 0.1 : performance.now() - t0;
+  perf.aiT.push(t);
+  aiBusy = false;
+  const W = vw(), H = vh(), opt = { minHipVis: S.minHipVis, minFootVis: S.minFootVis };
+  lastPoses = (res?.landmarks || []).map(l => ({ lms: l, ...extractPose(l, W, H, opt) }));
+  const inside = lastPoses.filter(p => p.hipOk && inZone(p.hip, zoneActive));
+  if (inside.length === 1) { poseLog.push({ t, hipY: inside[0].hip.y }); while (poseLog.length && t - poseLog[0].t > 10000) poseLog.shift(); }
+  const ev = detector.update({ t, people: lastPoses });
+  if (ev) onDetectorEvent(ev);
+  updateUI();
+}
+
+function onDetectorEvent(ev) {
+  const entry = { id: ++histN, time: new Date(), ai: ev.type === 'result' ? ev.detenteCm : null,
+    aiUncertain: ev.uncertain, flightCm: ev.flightCm, issues: ev.issues || [], rejected: ev.type === 'rejected' ? ev.reason : null, manual: null };
+  history.unshift(entry); if (history.length > 200) history.pop();
+  shownResult = { kind: ev.type === 'result' ? 'ai' : 'rejected', ev, entry };
+  const from = (ev.refT ?? ev.takeoffT ?? ev.t) - 700;
+  setTimeout(() => {
+    if (R) return; // une revue est ouverte : on ne touche pas au tampon
+    setLastClip({ frames: takeBuffer(from), ai: ev.type === 'result' ? ev : null, entryId: entry.id, frozenAt: performance.now() });
+    updateUI(true);
+  }, 350);
+  updateUI(true); renderHistory();
+}
+
+/* ================= Revue manuelle ================= */
+function nearestIdx(frames, t) {
+  let best = 0, bd = Infinity;
+  frames.forEach((f, i) => { const d = Math.abs(f.t - t); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+function hipAt(t) {
+  let best = null, bd = 80;
+  for (const p of poseLog) { const d = Math.abs(p.t - t); if (d < bd) { bd = d; best = p.hipY; } }
+  return best;
+}
+
+function openReview() {
+  if (edit) return;
+  let clip = (S.mode === 'ai' && lastClip && lastClip.frames.length) ? lastClip : null;
+  if (!clip) {
+    const frames = takeBuffer();
+    if (!frames.length) { flash('Tampon vide : attendez quelques secondes que la caméra tourne.'); return; }
+    clip = { frames, ai: null, entryId: null, frozenAt: performance.now() };
+    setLastClip(clip);
+  }
+  const ai = clip.ai;
+  R = { clip, frames: clip.frames, idx: clip.frames.length - 1, refIdx: null, topIdx: null, yRef: null, yTop: null,
+    active: 'ref', zoom: 1, savedValue: null };
+  if (ai) {
+    R.refIdx = nearestIdx(R.frames, ai.refT); R.topIdx = nearestIdx(R.frames, ai.apexT);
+    R.yRef = ai.refY; R.yTop = ai.apexY; R.idx = R.topIdx; R.active = 'top';
+  }
+  $('#review').classList.remove('hidden');
+  const sl = $('#rvSlider'); sl.max = R.frames.length - 1; sl.value = R.idx;
+  updateReview(); updateUI(true);
+}
+
+function closeReview() {
+  R = null; drag = null; loupe = null;
+  $('#review').classList.add('hidden');
+  lastCapT = 0; dirty = true; updateUI(true);
+}
+
+function manualValue() {
+  if (!R || R.yRef == null || R.yTop == null) return NaN;
+  return detenteCm(R.yRef, R.yTop, cmPx());
+}
+
+function setActiveLine(which, idxForFrame = true) {
+  R.active = which;
+  const key = which === 'ref' ? 'refIdx' : 'topIdx', yk = which === 'ref' ? 'yRef' : 'yTop';
+  if (idxForFrame) R[key] = R.idx;
+  if (R[yk] == null) {
+    const h = hipAt(R.frames[R.idx].t);
+    if (h != null) R[yk] = h;
+    else if (which === 'top' && R.yRef != null && cmPx() > 0) R[yk] = R.yRef - 20 / cmPx();
+    else if (which === 'ref' && R.yTop != null && cmPx() > 0) R[yk] = R.yTop + 20 / cmPx();
+    else R[yk] = vh() / 2;
+  }
+}
+
+function updateReview() {
+  if (!R) return;
+  const f = R.frames[R.idx], t0 = R.frames[R.frames.length - 1].t;
+  setText($('#rvLbl'), `image ${R.idx + 1}/${R.frames.length} · ${fmt((f.t - t0) / 1000, 2)} s`);
+  $('#rvSlider').value = R.idx;
+  setText($('#rvGoRef'), R.refIdx == null ? '⇤ —' : `⇤ ${R.refIdx + 1}`);
+  setText($('#rvGoTop'), R.topIdx == null ? '⇥ —' : `⇥ ${R.topIdx + 1}`);
+  $('#rvSetRef').classList.toggle('on', R.active === 'ref');
+  $('#rvSetTop').classList.toggle('on', R.active === 'top');
+  setText($('#rvZoom'), `Zoom ×${R.zoom}`);
+  const k = vw() / (R.frames[0].bmp.width || vw());
+  const dts = R.frames.slice(1).map((x, i) => x.t - R.frames[i].t);
+  const fps = dts.length ? 1000 / (dts.reduce((a, b) => a + b, 0) / dts.length) : 0;
+  let note = `Tampon ${R.frames[0].bmp.width}×${R.frames[0].bmp.height} à ≈${fmt(fps, 0)} img/s`;
+  if (cmPx() > 0) note += ` · 1 px du tampon ≈ ${fmt(cmPx() * k, 2)} cm · intervalle entre images ≈ ${fmt(1000 / (fps || 1), 0)} ms`;
+  if (!hasRVFC) note += ' · ⚠ ce navigateur ne garantit pas une capture image par image : le sommet réel peut tomber entre deux images.';
+  note += ' — Glissez la ligne active (bleue = départ, orange = sommet) ; ▲▼ pour l’ajuster finement.';
+  setText($('#rvNote'), note);
+  dirty = true; updateUI(true);
+}
+
+function stepFrame(d) { if (!R) return; R.idx = Math.max(0, Math.min(R.frames.length - 1, R.idx + d)); updateReview(); }
+
+function saveManual() {
+  const v = manualValue();
+  if (!Number.isFinite(v)) { flash(calStatus.valid ? 'Placez d’abord les deux lignes (départ et sommet).' : 'Calibration invalide : mesure impossible.'); return; }
+  let entry = R.clip.entryId ? history.find(h => h.id === R.clip.entryId) : null;
+  if (!entry) { entry = { id: ++histN, time: new Date(), ai: null, manual: null, issues: [] }; history.unshift(entry); R.clip.entryId = entry.id; }
+  entry.manual = v;
+  shownResult = { kind: 'manual', entry };
+  R.savedValue = v;
+  renderHistory(); flash(`Mesure manuelle enregistrée : ${fmt(v)} cm`, true); updateUI(true);
+}
+
+/* ================= Rendu ================= */
+function resizeCanvas() {
+  const r = canvas.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cssW = r.width; cssH = r.height;
+  canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  dirty = true;
+}
+new ResizeObserver(resizeCanvas).observe($('#stage'));
+new ResizeObserver(() => { dirty = true; }).observe($('#review'));
+
+// En vérification, l'image est placée au-dessus de la barre de commandes pour ne pas masquer les pieds.
+function viewH() { return R ? Math.max(120, cssH - $('#review').offsetHeight) : cssH; }
+function baseFit() { return computeFit(vw(), vh(), cssW, viewH(), S.fitMode); }
+function viewFit() {
+  const f = baseFit();
+  if (!R || R.zoom === 1) return f;
+  const ly = R.active === 'ref' ? R.yRef : R.yTop;
+  const fx = zoneActive ? zoneActive.x + zoneActive.w / 2 : vw() / 2;
+  return zoomFit(f, R.zoom, { x: fx, y: ly ?? vh() / 2 }, cssW, viewH(), S.mirror);
+}
+function currentFit() { return R ? viewFit() : baseFit(); }
+
+function drawSource(src, fit) {
+  ctx.save();
+  if (S.mirror) { ctx.translate(fit.ox + fit.w, fit.oy); ctx.scale(-1, 1); ctx.drawImage(src, 0, 0, fit.w, fit.h); }
+  else ctx.drawImage(src, fit.ox, fit.oy, fit.w, fit.h);
+  ctx.restore();
+}
+
+const P = (pt, fit) => nativeToView(pt, fit, S.mirror);
+
+function hline(y, fit, color, label, width = 3, dash = []) {
+  const a = P({ x: 0, y }, fit), b = P({ x: vw(), y }, fit);
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(Math.min(a.x, b.x), a.y); ctx.lineTo(Math.max(a.x, b.x), a.y); ctx.stroke();
+  if (label) { ctx.font = '600 14px system-ui'; ctx.fillStyle = color; ctx.fillText(label, Math.max(Math.min(a.x, b.x), 0) + 8, a.y - 7); }
+  ctx.restore();
+}
+function dot(pt, fit, color, r = 6) {
+  const p = P(pt, fit); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+}
+function handle(pt, fit, color, active) {
+  const p = P(pt, fit);
+  ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = color; ctx.fillStyle = active ? color + '55' : 'rgba(0,0,0,.35)';
+  ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(p.x - 30, p.y); ctx.lineTo(p.x + 30, p.y); ctx.moveTo(p.x, p.y - 30); ctx.lineTo(p.x, p.y + 30); ctx.stroke();
+  ctx.restore();
+}
+
+const BONES = [[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],[27,29],[29,31],[27,31],[28,30],[30,32],[28,32],[11,13],[13,15],[12,14],[14,16]];
+function drawSkeleton(pose, fit, color) {
+  const W = vw(), H = vh(), pt = (i) => P({ x: pose.lms[i].x * W, y: pose.lms[i].y * H }, fit);
+  ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = color; ctx.globalAlpha = 0.85;
+  for (const [a, b] of BONES) {
+    if ((pose.lms[a].visibility ?? 1) < 0.3 || (pose.lms[b].visibility ?? 1) < 0.3) continue;
+    const p = pt(a), q = pt(b); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+  }
+  ctx.restore();
+  dot(pose.hip, fit, pose.hipOk ? '#4ade80' : '#f87171', 8);
+}
+
+function drawOverlays(fit, forLoupe = false) {
+  // zone de saut
+  if (zoneActive && !(edit?.kind === 'zone')) {
+    const a = P({ x: zoneActive.x, y: zoneActive.y }, fit), b = P({ x: zoneActive.x + zoneActive.w, y: zoneActive.y + zoneActive.h }, fit);
+    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.setLineDash([10, 8]); ctx.lineWidth = 2;
+    ctx.strokeRect(Math.min(a.x, b.x), a.y, Math.abs(b.x - a.x), b.y - a.y); ctx.restore();
+  }
+  // repères de calibration enregistrés
+  if (S.showCal && cal && !edit && !forLoupe) {
+    const a = P(cal.p1, fit), b = P(cal.p2, fit);
+    ctx.save(); ctx.strokeStyle = calStatus.valid ? '#c084fc' : '#f87171'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    for (const p of [a, b]) { ctx.beginPath(); ctx.moveTo(p.x - 10, p.y); ctx.lineTo(p.x + 10, p.y); ctx.stroke(); }
+    ctx.fillStyle = ctx.strokeStyle; ctx.font = '600 12px system-ui'; ctx.fillText(`${cal.method === 'markers' ? 'marqueurs' : 'A4'} ${fmt(cal.refCm ?? A4_CM)} cm`, Math.max(a.x, b.x) + 8, (a.y + b.y) / 2);
+    ctx.restore();
+  }
+  // édition calibration
+  if (edit?.kind === 'cal' && edit.detect) {
+    const d = edit.detect;
+    ctx.save(); ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    if (d.quad) { ctx.beginPath(); d.quad.forEach((q, i) => { const v = P(q, fit); i ? ctx.lineTo(v.x, v.y) : ctx.moveTo(v.x, v.y); }); ctx.closePath(); ctx.stroke(); }
+    if (d.markers) for (const m of d.markers) {
+      const a = P({ x: m.x, y: m.y }, fit), b = P({ x: m.x + m.w, y: m.y + m.h }, fit);
+      ctx.strokeRect(Math.min(a.x, b.x) - 3, a.y - 3, Math.abs(b.x - a.x) + 6, b.y - a.y + 6);
+    }
+    ctx.restore();
+  }
+  if (edit?.kind === 'cal') {
+    const a = P(edit.p1, fit), b = P(edit.p2, fit);
+    ctx.save(); ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.restore();
+    handle(edit.p1, fit, '#fb923c', drag?.which === 'p1'); handle(edit.p2, fit, '#fb923c', drag?.which === 'p2');
+  }
+  if (edit?.kind === 'zone') {
+    const z = edit.rect, a = P({ x: z.x, y: z.y }, fit), b = P({ x: z.x + z.w, y: z.y + z.h }, fit);
+    ctx.save(); ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 3; ctx.fillStyle = 'rgba(251,146,60,.12)';
+    ctx.fillRect(Math.min(a.x, b.x), a.y, Math.abs(b.x - a.x), b.y - a.y);
+    ctx.strokeRect(Math.min(a.x, b.x), a.y, Math.abs(b.x - a.x), b.y - a.y); ctx.restore();
+    for (const c of zoneCorners(z)) handle(c, fit, '#fb923c', false);
+  }
+  // direct IA
+  if (!R && !edit && S.mode === 'ai') {
+    if (S.showSkeleton && !forLoupe) lastPoses.forEach(p => drawSkeleton(p, fit, inZone(p.hip, zoneActive) ? '#38bdf8' : '#64748b'));
+    if (detector.ref && [STATES.READY, STATES.JUMPING].includes(detector.state)) hline(detector.ref.hipY, fit, '#38bdf8', 'référence bassin', 2, [8, 6]);
+    if (detector.state === STATES.JUMPING && detector.jump) hline(detector.jump.apexY, fit, '#fb923c', '', 2);
+    if (detector.state === STATES.RESULT && detector.lastResult?.type === 'result') {
+      const r = detector.lastResult; hline(r.refY, fit, '#38bdf8', 'départ', 2); hline(r.apexY, fit, '#fb923c', 'sommet', 2);
+    }
+  }
+  // revue manuelle
+  if (R) {
+    if (R.yRef != null) hline(R.yRef, fit, '#38bdf8', `départ${R.refIdx != null ? ' (img ' + (R.refIdx + 1) + ')' : ''}`, R.active === 'ref' ? 3 : 2);
+    if (R.yTop != null) hline(R.yTop, fit, '#fb923c', `sommet${R.topIdx != null ? ' (img ' + (R.topIdx + 1) + ')' : ''}`, R.active === 'top' ? 3 : 2);
+    if (!forLoupe) {
+      const y = R.active === 'ref' ? R.yRef : R.yTop;
+      if (y != null) {
+        const p = P({ x: vw(), y }, fit), q = P({ x: 0, y }, fit), c = R.active === 'ref' ? '#38bdf8' : '#fb923c';
+        for (const x of [Math.min(p.x, q.x) + 28, Math.max(p.x, q.x) - 28]) {
+          ctx.save(); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(Math.min(Math.max(x, 28), cssW - 28), p.y, 16, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+      }
+    }
+  }
+}
+
+function drawLoupe() {
+  if (!loupe) return;
+  const src = R ? R.frames[R.idx].bmp : video;
+  const base = currentFit(), M = 3, rad = 75;
+  let lx = loupe.view.x, ly = loupe.view.y - 120;
+  if (ly - rad < 4) ly = loupe.view.y + 120;
+  lx = Math.min(Math.max(lx, rad + 4), cssW - rad - 4);
+  const s = base.scale * M, c = loupe.native;
+  const cx = S.mirror ? vw() - c.x : c.x;
+  const lf = { scale: s, ox: lx - cx * s, oy: ly - c.y * s, w: vw() * s, h: vh() * s, srcW: vw(), srcH: vh() };
+  ctx.save(); ctx.beginPath(); ctx.arc(lx, ly, rad, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = '#000'; ctx.fillRect(lx - rad, ly - rad, rad * 2, rad * 2);
+  drawSource(src, lf); drawOverlays(lf, true);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath();
+  ctx.moveTo(lx - rad, ly); ctx.lineTo(lx + rad, ly); ctx.moveTo(lx, ly - rad); ctx.lineTo(lx, ly + rad); ctx.stroke();
+  ctx.restore();
+  ctx.save(); ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(lx, ly, rad, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+}
+
+function render() {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cssW, cssH);
+  if (!vw()) {
+    ctx.fillStyle = '#8fa1b3'; ctx.font = '600 20px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(camError ? 'Caméra indisponible' : 'Démarrage de la caméra…', cssW / 2, cssH / 2); ctx.textAlign = 'start';
+    return;
+  }
+  const fit = currentFit();
+  drawSource(R ? R.frames[R.idx].bmp : video, fit);
+  drawOverlays(fit);
+  drawLoupe();
+}
+
+(function loop() { if (dirty) { dirty = false; render(); } requestAnimationFrame(loop); })();
+
+/* ================= Interactions sur l'image ================= */
+const local = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+const clampN = (p) => ({ x: Math.min(Math.max(p.x, 0), vw()), y: Math.min(Math.max(p.y, 0), vh()) });
+function zoneCorners(z) { return [{ x: z.x, y: z.y }, { x: z.x + z.w, y: z.y }, { x: z.x, y: z.y + z.h }, { x: z.x + z.w, y: z.y + z.h }]; }
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (!vw()) return;
+  const p = local(e), fit = currentFit(), dist = (n) => { const v = P(n, fit); return Math.hypot(v.x - p.x, v.y - p.y); };
+  if (edit?.kind === 'cal') {
+    const d1 = dist(edit.p1), d2 = dist(edit.p2), which = d1 <= d2 ? 'p1' : 'p2';
+    if (Math.min(d1, d2) > 60) return;
+    const hv = P(edit[which], fit);
+    drag = { kind: 'cal', which, off: { x: hv.x - p.x, y: hv.y - p.y } };
+  } else if (edit?.kind === 'zone') {
+    const cs = zoneCorners(edit.rect), ds = cs.map(dist), i = ds.indexOf(Math.min(...ds));
+    if (ds[i] < 50) drag = { kind: 'zoneCorner', i, opp: cs[3 - i] };
+    else { const n = viewToNative(p, fit, S.mirror); if (inZone(n, edit.rect)) drag = { kind: 'zoneMove', start: n, rect: { ...edit.rect } }; }
+  } else if (R) {
+    const n = viewToNative(p, fit, S.mirror);
+    const dy = (y) => y == null ? Infinity : Math.abs(P({ x: 0, y }, fit).y - p.y);
+    const dr = dy(R.yRef), dt = dy(R.yTop);
+    if (Math.min(dr, dt) < 40) R.active = dr <= dt ? 'ref' : 'top';
+    const yk = R.active === 'ref' ? 'yRef' : 'yTop', ik = R.active === 'ref' ? 'refIdx' : 'topIdx';
+    const off = R[yk] != null && Math.min(dr, dt) < 40 ? P({ x: 0, y: R[yk] }, fit).y - p.y : 0;
+    if (R[ik] == null) R[ik] = R.idx;
+    drag = { kind: 'line', off };
+    R[yk] = clampN(viewToNative({ x: p.x, y: p.y + off }, fit, S.mirror)).y;
+    loupe = { view: p, native: { x: n.x, y: R[yk] } };
+    updateReview();
+  } else return;
+  canvas.setPointerCapture(e.pointerId);
+  e.preventDefault(); dirty = true;
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const p = local(e), fit = currentFit();
+  if (drag.kind === 'cal') {
+    const n = clampN(viewToNative({ x: p.x + drag.off.x, y: p.y + drag.off.y }, fit, S.mirror));
+    edit[drag.which] = n; edit.adjusted = true; loupe = { view: P(n, fit), native: n }; updateEditText();
+  } else if (drag.kind === 'zoneCorner') {
+    const n = clampN(viewToNative(p, fit, S.mirror)), o = drag.opp;
+    edit.rect = { x: Math.min(n.x, o.x), y: Math.min(n.y, o.y), w: Math.abs(n.x - o.x), h: Math.abs(n.y - o.y) };
+  } else if (drag.kind === 'zoneMove') {
+    const n = viewToNative(p, fit, S.mirror), r = drag.rect;
+    edit.rect = { ...r, x: Math.min(Math.max(r.x + n.x - drag.start.x, 0), vw() - r.w), y: Math.min(Math.max(r.y + n.y - drag.start.y, 0), vh() - r.h) };
+  } else if (drag.kind === 'line' && R) {
+    const yk = R.active === 'ref' ? 'yRef' : 'yTop';
+    const n = viewToNative({ x: p.x, y: p.y + drag.off }, fit, S.mirror);
+    R[yk] = clampN(n).y; loupe = { view: { x: p.x, y: p.y + drag.off }, native: { x: clampN(n).x, y: R[yk] } };
+    updateUI(true);
+  }
+  dirty = true;
+});
+const endDrag = () => { if (drag) { drag = null; loupe = null; dirty = true; } };
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+/* ================= Édition calibration / zone ================= */
+function startEdit(kind, det = null, fromWizard = false) {
+  if (!vw()) { flash('Caméra non démarrée.'); return; }
+  closeAdmin(); if (R) closeReview(); closeWizard();
+  if (kind === 'cal' && det) {
+    edit = { kind, p1: { ...det.p1 }, p2: { ...det.p2 }, refCm: det.refCm, method: det.method, detect: det, adjusted: false, fromWizard };
+  } else if (kind === 'cal') {
+    const keep = cal && cal.videoWidth === vw() && cal.videoHeight === vh() && (cal.method ?? 'manual') !== 'markers';
+    edit = { kind, p1: keep ? { ...cal.p1 } : { x: vw() / 2, y: vh() * 0.4 }, p2: keep ? { ...cal.p2 } : { x: vw() / 2, y: vh() * 0.6 },
+      refCm: A4_CM, method: 'manual', detect: null, fromWizard };
+  } else {
+    const z = zoneActive || { x: vw() * 0.25, y: 0, w: vw() * 0.5, h: vh() };
+    edit = { kind, rect: { x: z.x, y: z.y, w: z.w, h: z.h } };
+  }
+  $('#editbar').classList.remove('hidden'); updateEditText(); dirty = true; updateUI(true);
+}
+function updateEditText() {
+  if (!edit) return;
+  if (edit.kind === 'cal') {
+    const h = Math.hypot(edit.p2.x - edit.p1.x, edit.p2.y - edit.p1.y), d = edit.detect;
+    const target = edit.method === 'markers' ? `les <b>centres des deux carrés</b> (${fmt(edit.refCm)} cm)` : 'le <b>haut</b> et le <b>bas</b> de la feuille A4 (29,7 cm)';
+    const head = d ? `Détection « ${METHOD_FR[d.method]} » : ${d.success}/${d.frames} images · confiance ${fmt(d.confidence * 100, 0)} %${edit.adjusted ? ' · <b>ajusté à la main</b>' : ''}. Vérifiez que les repères sont sur ${target}.`
+      : `Placez les deux repères sur ${target}.`;
+    const warn = d?.warnings?.length ? `<br>⚠ ${d.warnings.join(' · ')}` : '';
+    setHTML($('#editTxt'), `${head}
+      <small>${fmt(h, 1)} px natifs → ${fmt(edit.refCm / h, 4)} cm/px (image ${vw()}×${vh()})${d?.spreadPx != null ? ` · stabilité ±${fmt(d.spreadPx, 2)} px` : ''}. Repères ajustables au doigt (loupe).${warn}</small>`);
+  } else {
+    setHTML($('#editTxt'), 'Ajustez la zone de saut (coins ou centre). <small>Seul le bassin situé dans cette zone est pris en compte. Les pieds doivent rester visibles dans l’image.</small>');
+  }
+}
+function endEdit(save) {
+  if (save && edit?.kind === 'cal') {
+    const h = Math.hypot(edit.p2.x - edit.p1.x, edit.p2.y - edit.p1.y);
+    if (h < 10) { flash('Repères trop proches.'); return; }
+    const det = edit.detect ? { confidence: edit.detect.confidence, frames: edit.detect.frames, success: edit.detect.success, adjusted: edit.adjusted } : null;
+    saveCalibration(edit.p1, edit.p2, edit.refCm, edit.method, det);
+    flash(`Calibration enregistrée (${METHOD_FR[edit.method]}) : ${fmt(cal.cmPerPx, 4)} cm/px`, true);
+  }
+  if (save && edit?.kind === 'zone') {
+    const r = edit.rect;
+    if (r.w < 40 || r.h < 40) { flash('Zone trop petite.'); return; }
+    zone = { ...r, videoWidth: vw(), videoHeight: vh() }; store.set(K.zone, zone); revalidate();
+    flash('Zone de saut enregistrée.', true);
+  }
+  const back = !save && edit?.fromWizard;
+  edit = null; drag = null; loupe = null;
+  $('#editbar').classList.add('hidden'); detector.reset(); dirty = true; updateUI(true);
+  if (back) openWizard();
+}
+$('#editSave').onclick = () => endEdit(true);
+$('#editCancel').onclick = () => endEdit(false);
+
+/* ================= Interface principale ================= */
+const STATE_FR = { WAITING: 'En attente', STABILIZING: 'Stabilisation', READY: 'Prêt', JUMPING: 'Saut', RESULT: 'Résultat' };
+let lastUi = 0, flashMsg = null, flashUntil = 0;
+function flash(txt, ok = false) { flashMsg = { txt, ok }; flashUntil = performance.now() + 3500; updateUI(true); }
+
+function updateUI(force = false) {
+  const now = performance.now();
+  if (!force && now - lastUi < 100) return;
+  lastUi = now;
+  // bandeau d'erreur prioritaire
+  let banner = null, info = false;
+  if (flashMsg && now < flashUntil) { banner = flashMsg.txt; info = flashMsg.ok; }
+  else if (camError) banner = camError;
+  else if (!calStatus.valid && vw()) banner = '⚠ ' + calStatus.reasons.join(' · ') + ' — maintenez ⚙ pour calibrer.';
+  else if (S.mode === 'ai' && aiState === 'error') banner = 'Modèle IA non chargé (' + aiErr + '). Le mode manuel reste disponible.';
+  else if (lowLight && vw()) banner = 'Faible luminosité : la détection peut être moins fiable.';
+  const b = $('#banner');
+  b.classList.toggle('hidden', !banner || !!edit); b.classList.toggle('info', info);
+  if (banner) setText(b, banner);
+
+  // état / message
+  const pill = $('#pill'); let cls, label, msg;
+  if (R) { cls = 'REVIEW'; label = 'Vérification'; msg = 'Choisissez l’image de départ et l’image du sommet, puis placez les lignes.'; }
+  else if (edit) { cls = 'MANUAL'; label = 'Réglage'; msg = edit.kind === 'cal' ? 'Calibration en cours' : 'Zone de saut'; }
+  else if (S.mode === 'manual') { cls = 'MANUAL'; label = 'Manuel'; msg = 'Faites sauter, puis appuyez sur « Figer et mesurer ».'; }
+  else if (aiState === 'loading') { cls = 'WAITING'; label = 'IA…'; msg = 'Chargement du modèle IA…'; }
+  else if (aiState !== 'ready') { cls = 'WAITING'; label = 'IA indisponible'; msg = 'Utilisez le mode Manuel.'; }
+  else { cls = detector.state; label = STATE_FR[detector.state]; msg = detector.message; }
+  pill.className = 'pill ' + cls; setText(pill, label); setText($('#msg'), msg);
+
+  // résultat
+  const box = $('#resultBox'); let val = '—', inf = '';
+  box.classList.remove('uncertain', 'manual');
+  if (R) {
+    const v = manualValue(); box.classList.add('manual');
+    val = fmt(v);
+    const ai = R.clip.ai;
+    inf = ai ? `IA : ${fmt(ai.detenteCm)} cm · écart manuel − IA : ${Number.isFinite(v) ? fmt(v - ai.detenteCm) : '—'} cm` : 'Mesure manuelle';
+    if (!calStatus.valid) inf = 'Calibration invalide : mesure impossible';
+  } else if (shownResult?.kind === 'ai') {
+    const ev = shownResult.ev; val = fmt(ev.detenteCm);
+    if (ev.uncertain) { box.classList.add('uncertain'); inf = `<span class="tag">mesure incertaine</span> ${ev.issues.join(', ')} — vérifiez`; }
+    else inf = `IA · vol ≈ ${fmt(ev.flightCm, 0)} cm (temps de vol, indicatif) · ${fmt(ev.aiFps, 0)} analyses/s`;
+  } else if (shownResult?.kind === 'manual') { box.classList.add('manual'); val = fmt(shownResult.entry.manual); inf = 'Mesure manuelle'; }
+  else if (shownResult?.kind === 'rejected') { inf = `<span class="tag">mesure écartée</span> ${shownResult.ev.reason}`; }
+  setText($('#resultVal'), val); setHTML($('#resultInfo'), inf);
+
+  // boutons
+  document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x.dataset.mode === S.mode));
+  const verify = $('#btnVerify');
+  setText(verify, R ? 'Fermer la vérification' : (S.mode === 'manual' ? 'Figer et mesurer' : 'Vérifier'));
+  verify.disabled = !!edit || (!R && !vw());
+
+  // comparaison
+  const last = history.find(h => h.ai != null && h.manual != null);
+  setHTML($('#compare'), last ? `Dernière comparaison (saut n°${last.id}) : IA <b>${fmt(last.ai)}</b> · manuel <b>${fmt(last.manual)}</b> · écart <b>${fmt(last.manual - last.ai)}</b> cm` : '');
+
+  // HUD
+  const hud = $('#hud'); hud.classList.toggle('hidden', !S.showHud || !vw() || !!R);
+  if (S.showHud && vw()) {
+    let s = `${vw()}×${vh()} · ${fmt(rate(perf.camT, now), 0)} img/s`;
+    if (S.mode === 'ai' && aiState === 'ready') s += ` | IA ${fmt(rate(perf.aiT, now), 0)}/s · ${fmt(perf.aiMs, 0)} ms`;
+    s += ` | tampon ${fmt(rate(perf.capT, now), 0)}/s · ${buf.frames.length} img`;
+    setText(hud, s);
+  }
+  if (!$('#admin').classList.contains('hidden')) updateAdmin();
+  updateWizard();
+}
+setInterval(() => updateUI(true), 500);
+
+document.querySelectorAll('.seg button').forEach(bt => bt.onclick = () => {
+  if (R) closeReview();
+  S.mode = bt.dataset.mode; saveS(); detector.reset(); lastPoses = []; shownResult = null;
+  if (S.mode === 'ai' && aiState !== 'ready' && aiState !== 'loading') loadModel();
+  dirty = true; updateUI(true);
+});
+
+$('#btnNew').onclick = () => {
+  if (R) closeReview();
+  detector.reset(); shownResult = null; lastPoses = []; setLastClip(null);
+  dirty = true; updateUI(true);
+};
+$('#btnVerify').onclick = () => { if (R) closeReview(); else openReview(); };
+
+$('#rvPrev').onclick = () => stepFrame(-1);
+$('#rvNext').onclick = () => stepFrame(1);
+$('#rvSlider').oninput = (e) => { if (R) { R.idx = +e.target.value; updateReview(); } };
+$('#rvSetRef').onclick = () => { setActiveLine('ref'); updateReview(); };
+$('#rvSetTop').onclick = () => { setActiveLine('top'); updateReview(); };
+$('#rvGoRef').onclick = () => { if (R?.refIdx != null) { R.idx = R.refIdx; R.active = 'ref'; updateReview(); } };
+$('#rvGoTop').onclick = () => { if (R?.topIdx != null) { R.idx = R.topIdx; R.active = 'top'; updateReview(); } };
+const nudge = (d) => {
+  if (!R) return; const yk = R.active === 'ref' ? 'yRef' : 'yTop';
+  if (R[yk] == null) setActiveLine(R.active);
+  R[yk] = Math.min(Math.max(R[yk] + d, 0), vh()); updateReview();
+};
+$('#rvUp').onclick = () => nudge(-1);
+$('#rvDown').onclick = () => nudge(1);
+$('#rvZoom').onclick = () => { if (R) { R.zoom = R.zoom >= 3 ? 1 : R.zoom + 1; updateReview(); } };
+$('#rvSave').onclick = saveManual;
+$('#rvClose').onclick = closeReview;
+
+document.addEventListener('keydown', (e) => {
+  if (!R || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  const map = { ArrowLeft: () => stepFrame(-1), ArrowRight: () => stepFrame(1), ArrowUp: () => nudge(e.shiftKey ? -5 : -1), ArrowDown: () => nudge(e.shiftKey ? 5 : 1) };
+  if (map[e.key]) { map[e.key](); e.preventDefault(); }
+});
+
+/* ================= Panneau administrateur ================= */
+let pressTimer = null;
+const gear = $('#gear');
+gear.addEventListener('pointerdown', () => { gear.classList.add('pressing'); pressTimer = setTimeout(() => { gear.classList.remove('pressing'); openAdmin(); }, 1000); });
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => gear.addEventListener(ev, () => { clearTimeout(pressTimer); gear.classList.remove('pressing'); }));
+gear.addEventListener('click', () => { if ($('#admin').classList.contains('hidden')) flash('Maintenez ⚙ une seconde pour ouvrir les paramètres.', true); });
+gear.addEventListener('contextmenu', (e) => e.preventDefault());
+
+function openAdmin() { syncInputs(); $('#admin').classList.remove('hidden'); updateAdmin(); renderHistory(); }
+function closeAdmin() { $('#admin').classList.add('hidden'); }
+$('#adminClose').onclick = closeAdmin;
+$('#admin').addEventListener('click', (e) => { if (e.target.id === 'admin') closeAdmin(); });
+
+function syncInputs() {
+  document.querySelectorAll('[data-s]').forEach(el => {
+    const v = S[el.dataset.s];
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+  });
+  document.querySelectorAll('[data-d]').forEach(el => { el.value = S.det[el.dataset.d]; });
+}
+const NUM_S = ['markerDistCm', 'aiMaxFps', 'minHipVis', 'minFootVis', 'bufferSec', 'bufferWidth', 'bufferFps'];
+document.querySelectorAll('[data-s]').forEach(el => el.addEventListener('change', () => {
+  const k = el.dataset.s;
+  let v = el.type === 'checkbox' ? el.checked : el.value;
+  if (NUM_S.includes(k)) { v = Number(v); if (!Number.isFinite(v)) return; }
+  S[k] = v; saveS();
+  if (['bufferSec', 'bufferWidth', 'bufferFps'].includes(k)) clearBuffer();
+  if (k === 'mpBase' && !v) { S.mpBase = MP_DEFAULT; el.value = MP_DEFAULT; saveS(); }
+  dirty = true; updateUI(true);
+}));
+document.querySelectorAll('[data-d]').forEach(el => el.addEventListener('change', () => {
+  const v = Number(el.value); if (!Number.isFinite(v)) return;
+  S.det[el.dataset.d] = v; saveS(); detector.setParams({ [el.dataset.d]: v });
+}));
+$('#btnDetDefaults').onclick = () => { S.det = { ...DEF.det }; S.minHipVis = DEF.minHipVis; S.minFootVis = DEF.minFootVis; saveS(); detector.setParams(S.det); syncInputs(); };
+$('#btnCamApply').onclick = () => { if (R) closeReview(); S.deviceLabel = ''; saveS(); startCamera(); };
+$('#btnAiReload').onclick = () => { landmarker = null; aiState = 'idle'; loadModel(); };
+$('#btnCal').onclick = () => startEdit('cal');
+$('#btnWizard').onclick = () => { closeAdmin(); openWizard(); };
+$('#btnZone').onclick = () => startEdit('zone');
+$('#btnZoneAll').onclick = () => { zone = null; store.del(K.zone); revalidate(); flash('Zone : image entière.', true); };
+$('#btnCalClear').onclick = () => { if (confirm('Effacer la calibration enregistrée ?')) { cal = null; store.del(K.cal); revalidate(); } };
+$('#btnFull').onclick = () => { const d = document.documentElement; (document.fullscreenElement ? document.exitFullscreen() : d.requestFullscreen?.())?.catch?.(() => {}); };
+
+function updateAdmin() {
+  let h;
+  if (!cal) h = '<span class="bad">Aucune calibration enregistrée.</span>';
+  else {
+    h = `<div class="${calStatus.valid ? 'ok' : 'bad'}"><b>${calStatus.valid ? 'Calibration valide' : 'Calibration invalide'}</b>${calStatus.reasons.length ? ' : ' + calStatus.reasons.join(' · ') : ''}</div>
+      <div class="muted">${METHOD_FR[cal.method ?? 'manual']}${cal.detection?.adjusted ? ' (ajustée)' : ''} · ${fmt(cal.refCm ?? A4_CM)} cm = ${fmt(cal.heightPx, 1)} px → ${fmt(cal.cmPerPx, 4)} cm/px · image ${cal.videoWidth}×${cal.videoHeight} · ${new Date(cal.date).toLocaleString('fr-FR')}
+      · caméra « ${(cal.deviceLabel || 'inconnue').replace(/</g, '&lt;')} »${cal.distanceNote ? ' · distance notée ' + cal.distanceNote + ' cm' : ''}</div>`;
+    if (calStatus.warnings.length) h += `<div class="warnc">${calStatus.warnings.join('<br>')}</div>`;
+  }
+  h += `<div class="muted">Zone de saut : ${zoneActive ? `${fmt(zoneActive.w, 0)}×${fmt(zoneActive.h, 0)} px` : (zone ? '<span class="warnc">enregistrée pour une autre résolution (ignorée)</span>' : 'image entière')}</div>`;
+  setHTML($('#calStatus'), h);
+  const st = track?.getSettings?.() || {};
+  setText($('#camInfo'), vw() ? `Active : « ${curLabel || '?'} » · ${vw()}×${vh()} · ${st.frameRate ? fmt(st.frameRate, 0) + ' img/s annoncées' : ''}${st.facingMode ? ' · ' + st.facingMode : ''}${curZoom != null ? ' · zoom ' + curZoom : ''}` : 'Caméra inactive');
+  const aiTxt = { idle: 'non chargé', loading: 'chargement…', ready: `prêt (${aiDelegate})`, error: 'erreur : ' + aiErr }[aiState];
+  setText($('#aiInfo'), `Modèle : ${aiTxt}. Images analysées localement dans le navigateur ; seul le modèle est téléchargé.`);
+  const [bw, bh] = vw() ? bufferDims() : [0, 0];
+  const mb = bw * bh * 4 * S.bufferFps * S.bufferSec / 1048576;
+  setText($('#bufInfo'), vw() ? `${bw}×${bh} px · jusqu’à ${S.bufferFps * S.bufferSec} images · ≈ ${fmt(mb, 0)} Mo (×2 maximum pendant une vérification). ${hasRVFC ? 'Capture synchronisée sur les images caméra.' : '⚠ Capture non synchronisée (navigateur ancien) : précision image par image non garantie.'}` : '');
+  setText($('#diag'), [
+    `Contexte sécurisé : ${window.isSecureContext}`, `requestVideoFrameCallback : ${hasRVFC}`,
+    `Caméra : ${vw()}×${vh()} · ${fmt(rate(perf.camT, performance.now()), 1)} img/s reçues`,
+    `IA : ${aiState} · ${fmt(rate(perf.aiT, performance.now()), 1)} analyses/s · ${fmt(perf.aiMs, 1)} ms/analyse`,
+    `Tampon : ${buf.frames.length} images · ${fmt(rate(perf.capT, performance.now()), 1)} img/s · ${perf.capSkipped} sautées`,
+    `Luminosité faible : ${lowLight}`, `État détecteur : ${detector.state} · ${detector.message}`,
+    `Personnes détectées : ${lastPoses.length}`, `Écran : ${innerWidth}×${innerHeight} · DPR ${devicePixelRatio}`,
+    `Navigateur : ${navigator.userAgent}`,
+  ].join('\n'));
+}
+
+function renderHistory() {
+  const rows = history.slice(0, 50).map(h => `<tr><td>${h.id} · ${h.time.toLocaleTimeString('fr-FR')}</td>
+    <td>${h.ai != null ? fmt(h.ai) + (h.aiUncertain ? ' ⚠' : '') : (h.rejected ? 'écartée' : '—')}</td>
+    <td>${h.manual != null ? fmt(h.manual) : '—'}</td><td>${h.ai != null && h.manual != null ? fmt(h.manual - h.ai) : ''}</td></tr>`).join('');
+  setHTML($('#histTable'), history.length ? `<table><tr><th>Saut</th><th>IA (cm)</th><th>Manuel (cm)</th><th>Écart</th></tr>${rows}</table>` : '<div class="muted">Aucune mesure.</div>');
+}
+$('#btnCsv').onclick = () => {
+  const n = (v) => v == null ? '' : v.toFixed(1).replace('.', ',');
+  const lines = ['saut;heure;ia_cm;ia_incertaine;manuel_cm;ecart_cm;vol_indicatif_cm;remarque'];
+  [...history].reverse().forEach(h => lines.push([h.id, h.time.toLocaleTimeString('fr-FR'), n(h.ai), h.aiUncertain ? 'oui' : '',
+    n(h.manual), h.ai != null && h.manual != null ? n(h.manual - h.ai) : '', n(h.flightCm), (h.rejected || h.issues.join(', ')).replace(/;/g, ',')].join(';')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], { type: 'text/csv' }));
+  a.download = 'jumpmeasure-session.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$('#btnHistClear').onclick = () => { history.length = 0; renderHistory(); updateUI(true); };
+
+/* ================= Assistant de calibration (détection automatique) ================= */
+let wizardOpen = false, detecting = false;
+const wzResults = {}; // dernier résultat par méthode, pour comparer
+const grabCanvas = document.createElement('canvas');
+const grabCtx = grabCanvas.getContext('2d', { willReadFrequently: true });
+
+function openWizard() { syncInputs(); wizardOpen = true; $('#wizard').classList.remove('hidden'); updateWizard(); }
+function closeWizard() { wizardOpen = false; $('#wizard').classList.add('hidden'); }
+
+function grabFrame() {
+  const W = vw(), H = vh();
+  if (grabCanvas.width !== W || grabCanvas.height !== H) { grabCanvas.width = W; grabCanvas.height = H; }
+  grabCtx.drawImage(video, 0, 0, W, H);
+  return grabCtx.getImageData(0, 0, W, H);
+}
+
+// OpenCV.js à la demande. Le module est « thenable » et se renvoie lui-même : on le résout emballé dans un objet.
+let cvPromise = null;
+function loadOpenCV() {
+  if (cvPromise) return cvPromise;
+  cvPromise = new Promise((resolve, reject) => {
+    if (window.cv?.Mat) { resolve({ cv: window.cv }); return; }
+    const to = setTimeout(() => reject(new Error('délai dépassé (90 s)')), 90000);
+    const done = (m) => { clearTimeout(to); resolve({ cv: m }); };
+    const sc = document.createElement('script');
+    sc.src = S.opencvUrl; sc.async = true;
+    sc.onerror = () => { clearTimeout(to); reject(new Error('téléchargement impossible (' + S.opencvUrl + ')')); };
+    sc.onload = () => {
+      const m = window.cv;
+      if (!m) { clearTimeout(to); reject(new Error('OpenCV introuvable après chargement')); return; }
+      if (m.Mat) { done(m); return; }
+      if (m instanceof Promise) { m.then((mod) => { window.cv = mod; done(mod); }); return; }
+      m.onRuntimeInitialized = () => done(m);
+      const t = setInterval(() => { if (m.Mat) { clearInterval(t); done(m); } }, 100);
+    };
+    document.head.appendChild(sc);
+  });
+  cvPromise.catch(() => { cvPromise = null; });
+  return cvPromise;
+}
+
+function wzMsg(txt, cls = '') { const el = $('#wzMsg'); el.className = 'wmsg ' + cls; el.textContent = txt; }
+
+async function runDetection(method) {
+  if (detecting || !vw()) return;
+  detecting = true;
+  const btn = document.querySelector(`[data-detect="${method}"]`); btn.classList.add('busy');
+  document.querySelectorAll('[data-detect]').forEach(b => { b.disabled = true; });
+  try {
+    let fn;
+    if (method === 'opencv') {
+      wzMsg('Téléchargement d’OpenCV (≈ 10 Mo, une seule fois)…');
+      const { cv } = await loadOpenCV();
+      fn = (img) => detectSheetOpenCV(cv, img);
+    } else if (method === 'markers') fn = (img) => detectMarkers(img, { distCm: S.markerDistCm });
+    else fn = (img) => detectWhiteSheet(img);
+    const K = method === 'opencv' ? 3 : 5, results = [];
+    for (let i = 0; i < K; i++) {
+      wzMsg(`Analyse de l’image ${i + 1}/${K}…`);
+      await new Promise(r => setTimeout(r, 90));
+      try { results.push(fn(grabFrame())); } catch (e) { results.push({ ok: false, reason: 'Erreur : ' + (e?.message || e) }); }
+    }
+    const res = combineDetections(results);
+    res.method = method;
+    wzResults[method] = res;
+    if (!res.ok || res.success < Math.ceil(K / 2)) {
+      res.ok = false;
+      wzMsg(`Échec : ${res.reason || 'détection instable'} (${res.success}/${K} images).`, 'err');
+      updateWizard();
+      return;
+    }
+    wzMsg('');
+    startEdit('cal', res, true);
+  } catch (e) {
+    wzResults[method] = { ok: false, method, reason: e?.message || String(e) };
+    wzMsg(`Échec : ${e?.message || e}`, 'err');
+    updateWizard();
+  } finally {
+    detecting = false; btn.classList.remove('busy');
+    document.querySelectorAll('[data-detect]').forEach(b => { b.disabled = !vw(); });
+  }
+}
+
+function updateWizard() {
+  if (!wizardOpen) return;
+  let st;
+  if (!cal) st = '<span class="bad">Aucune calibration enregistrée.</span>';
+  else st = `<span class="${calStatus.valid ? 'ok' : 'bad'}">Calibration actuelle ${calStatus.valid ? 'valide' : 'invalide'}</span> · ${METHOD_FR[cal.method ?? 'manual']} · ${fmt(cal.cmPerPx, 4)} cm/px · ${new Date(cal.date).toLocaleString('fr-FR')}${calStatus.valid ? '' : '<br>' + calStatus.reasons.join(' · ')}`;
+  if (!vw()) st += '<br>En attente de la caméra…';
+  setHTML($('#wzStatus'), st);
+  if (!detecting) document.querySelectorAll('[data-detect]').forEach(b => { b.disabled = !vw(); });
+  setText($('#wzContinue'), cal && calStatus.valid ? 'Continuer avec la calibration actuelle' : 'Continuer sans calibrer');
+  const rows = ['white', 'opencv', 'markers'].filter(m => wzResults[m]);
+  const okv = rows.filter(m => wzResults[m].ok).map(m => wzResults[m].refCm / wzResults[m].heightPx);
+  const ref = okv.length ? okv.slice().sort((a, b) => a - b)[okv.length >> 1] : NaN;
+  setHTML($('#wzTable'), rows.length ? `<table><tr><th>Méthode</th><th>cm/px</th><th>Écart</th><th>Confiance</th><th>Images</th><th>ms</th></tr>${rows.map(m => {
+    const r = wzResults[m];
+    if (!r.ok) return `<tr><td>${METHOD_FR[m]}</td><td colspan="5" class="bad" style="text-align:left">${(r.reason || 'échec').replace(/</g, '&lt;')}</td></tr>`;
+    const v = r.refCm / r.heightPx;
+    return `<tr><td>${METHOD_FR[m]}</td><td>${fmt(v, 4)}</td><td>${okv.length > 1 ? fmt(Math.round((v / ref - 1) * 1000) / 10 || 0, 1) + ' %' : ''}</td><td>${fmt(r.confidence * 100, 0)} %</td><td>${r.success}/${r.frames}</td><td>${fmt(r.ms, 0)}</td></tr>`;
+  }).join('')}</table><div class="muted">Sur la feuille à marqueurs, les trois méthodes mesurent le même objet : les écarts indiquent leur cohérence.</div>` : '');
+}
+
+document.querySelectorAll('[data-detect]').forEach(b => b.addEventListener('click', () => runDetection(b.dataset.detect)));
+$('#wzManual').onclick = () => startEdit('cal', null, true);
+$('#wzContinue').onclick = () => { closeWizard(); detector.reset(); updateUI(true); };
+
+/* ================= Veille, visibilité ================= */
+let wakeLock = null;
+async function requestWakeLock() { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { } }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  requestWakeLock();
+  if (!track || track.readyState === 'ended') startCamera();
+});
+
+/* ================= Démarrage ================= */
+window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, detector, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
+resizeCanvas();
+if (S.showWizard) openWizard();
+startCamera();
+if (S.mode === 'ai') loadModel();
+updateUI(true);
+</script>
+</body>
+</html>

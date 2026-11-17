@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feuille de calibration — JumpMeasure LIVE</title>
+<style>
+  /* Cotes en millimètres : à imprimer à 100 % (taille réelle). Doivent correspondre à MARKER dans a4detect.js. */
+  @page { size: A4 portrait; margin: 0; }
+  html, body { margin: 0; background: #d9dde2; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .bar { position: sticky; top: 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;
+    padding: 10px; background: #0b0f14; color: #eef3f8; font-size: 15px; }
+  .bar button { font: inherit; font-weight: 700; padding: 10px 20px; border-radius: 10px; border: 0; background: #38bdf8; color: #04121c; cursor: pointer; }
+  .sheet { position: relative; width: 210mm; height: 297mm; margin: 10mm auto; background: #fff; overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25); }
+  .mk { position: absolute; left: 85mm; width: 40mm; height: 40mm; background: #000; }
+  .mk::after { content: ""; position: absolute; left: 12mm; top: 12mm; width: 16mm; height: 16mm; background: #fff; }
+  .mk.top { top: 28.5mm; } .mk.bot { top: 228.5mm; }
+  .ruler { position: absolute; left: 55mm; top: 148.25mm; width: 100mm; height: 0.5mm; background: #666; }
+  .tick { position: absolute; top: -1.5mm; width: 0.3mm; height: 3.5mm; background: #666; }
+  .txt { position: absolute; left: 20mm; right: 20mm; text-align: center; color: #8a8a8a; font-size: 3.3mm; line-height: 1.45; }
+  .t1 { top: 80mm; } .t2 { top: 156mm; }
+  .t1 b { color: #6b6b6b; font-size: 4.2mm; }
+  @media print {
+    html, body { background: #fff; }
+    .bar { display: none; }
+    .sheet { margin: 0; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <span>Imprimez à <b>100 % / taille réelle</b> (désactivez « Ajuster à la page »).</span>
+    <button onclick="window.print()">Imprimer</button>
+  </div>
+  <div class="sheet">
+    <div class="mk top"></div>
+    <div class="txt t1"><b>JumpMeasure LIVE — feuille de calibration</b><br>
+      Distance entre les centres des deux carrés : <b>20,0 cm</b></div>
+    <div class="ruler" id="ruler"></div>
+    <div class="txt t2">Règle de contrôle : 10 cm<br><br>
+      Vérifiez avec une règle : la ligne doit mesurer 10,0 cm et les centres des carrés être à 20,0 cm.<br>
+      Sinon, saisissez la distance mesurée dans l’application (écran Calibration).<br><br>
+      Fixez la feuille bien à plat et verticale, à l’emplacement du saut,<br>au niveau du bassin, face à la caméra. Retirez-la avant de sauter.</div>
+    <div class="mk bot"></div>
+  </div>
+<script>
+  const r = document.getElementById('ruler');
+  for (let i = 0; i <= 10; i++) { const t = document.createElement('div'); t.className = 'tick'; t.style.left = (i * 10 - 0.15) + 'mm'; if (i % 5) { t.style.top = '-0.75mm'; t.style.height = '2mm'; } r.appendChild(t); }
+</script>
+</body>
+</html>

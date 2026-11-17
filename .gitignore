@@ -1,0 +1,4 @@
+tests/.cache/
+__pycache__/
+*.y4m
+.DS_Store
