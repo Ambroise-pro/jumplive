@@ -12,6 +12,7 @@ Borne de mesure de détente verticale pour l'EPS, en mode « photocall » : une 
 | `core.js` | Calculs purs : px→cm, repère natif ↔ affiché, validation de calibration, machine à états du saut |
 | `a4detect.js` | Détection automatique de l'étalon (3 méthodes, voir « Calibration automatique ») |
 | `feuille-calibration.html` | Feuille à marqueurs à imprimer à 100 % |
+| `vendor/opencv.js` | OpenCV.js 4.10.0 (Apache 2.0), chargé seulement pour la méthode 2 |
 | `tests/core.test.mjs`, `tests/a4detect.test.mjs` | Tests unitaires (`node --test tests/*.test.mjs`) |
 | `tests/scene.mjs` | Générateur d'images synthétiques à géométrie connue |
 | `tests/e2e_calibration.py` | Test des 3 boutons de détection avec une fausse caméra (scène de gymnase synthétique) |
@@ -48,7 +49,7 @@ La calibration est enregistrée dans le navigateur (`localStorage`) avec la cam�
 L'écran de démarrage propose trois boutons. Après un appui, un **compte à rebours de 5 s** (réglable de 0 à 30 s, avec un bip à chaque seconde et un bouton *Annuler*) laisse le temps d'aller placer la feuille. Chaque méthode analyse ensuite 5 images (3 pour OpenCV), combine les résultats (médiane), puis **affiche ce qu'il a trouvé** (contour ou marqueurs en vert) avec la confiance et la stabilité. Tu valides avec *Enregistrer* ou tu ajustes les repères au doigt. *Annuler* revient à l'écran de choix. Un tableau compare les méthodes déjà essayées.
 
 1. **Feuille blanche** (JavaScript pur, aucun téléchargement) : cherche une zone claire aux proportions d'une A4 verticale, puis mesure les bords haut et bas au gradient sous-pixel. Il faut un fond **plus sombre** que la feuille. Les murs blancs, les fenêtres et les tapis clairs peuvent tromper la détection : un avertissement s'affiche si une autre forme comparable est trouvée.
-2. **Feuille blanche — OpenCV** : OpenCV.js (≈ 10 Mo, téléchargé à la première utilisation depuis docs.opencv.org) trouve le quadrilatère de la feuille, puis les bords sont remesurés comme en 1. En effet, les contours OpenCV sont décalés d'environ 1 px vers l'intérieur, ce qui donnait jusqu'à 5 % d'erreur sur une petite feuille. C'est plus robuste qu'en 1 face aux fonds chargés. Pour un usage hors ligne : `npm pack @techstark/opencv-js@4.10.0-release.1`, copier `dist/opencv.js` dans `vendor/` et renseigner `./vendor/opencv.js` dans *Paramètres → Calibration*.
+2. **Feuille blanche — OpenCV** : OpenCV.js (≈ 10 Mo) trouve le quadrilatère de la feuille, puis les bords sont remesurés comme en 1. En effet, les contours OpenCV sont décalés d'environ 1 px vers l'intérieur, ce qui donnait jusqu'à 5 % d'erreur sur une petite feuille. C'est plus robuste qu'en 1 face aux fonds chargés. OpenCV est **inclus dans le dépôt** (`vendor/opencv.js`, version 4.10.0 du paquet npm `@techstark/opencv-js`, licence Apache 2.0) et servi avec l'application. Si cette copie manque, l'application essaie jsDelivr, puis docs.opencv.org. Une URL personnalisée peut être saisie dans *Paramètres → Calibration*.
 3. **Feuille à marqueurs** (recommandée) : imprimer `feuille-calibration.html` **à 100 %**. Elle porte deux carrés noirs évidés, dont les centres sont espacés de 20,0 cm. Contrôle avec la règle de 10 cm imprimée ; si l'impression n'est pas exacte, saisir la distance mesurée entre les centres. La détection fonctionne même sur un fond clair. L'étalon mesure 20 cm au lieu de 29,7 cm, mais le centre d'un marqueur se localise plus finement qu'un bord de feuille.
 
 Une limite commune aux trois : la détection ne vérifie **pas** que la feuille est au même plan de profondeur que le bassin. La feuille doit être **retirée avant de sauter**, puisqu'elle est à l'emplacement du saut ; elle ne peut donc pas servir à détecter un déplacement de la caméra pendant la séance.
@@ -119,7 +120,7 @@ Puis, dans *Paramètres → Analyse IA* : Base MediaPipe = `./vendor/mediapipe`,
 ```bash
 node --test tests/*.test.mjs                 # 65 tests : conversions, repères, calibration, détecteur, détection de feuille
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
-python3 tests/e2e_calibration.py /chemin/chrome /chemin/opencv.js   # 11 vérifications : les 3 boutons via fausse caméra
+python3 tests/e2e_calibration.py /chemin/chrome   # 12 vérifications : les 3 boutons via fausse caméra
 pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 21 vérifications de bout en bout
 ```
 

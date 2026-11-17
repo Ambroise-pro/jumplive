@@ -62,9 +62,9 @@ try:
         b = p.chromium.launch(executable_path=CHROME, args=['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
                               f'--use-file-for-fake-video-capture={cache}/scene.y4m', '--no-sandbox'])
         ctx = b.new_context(viewport={'width': 1280, 'height': 800}, permissions=['camera'])
-        if os.path.exists(f'{cache}/opencv.js'):
+        if True:
             ctx.add_init_script("""if (!localStorage.getItem('jml.settings.v1'))
-              localStorage.setItem('jml.settings.v1', JSON.stringify({ opencvUrl: './tests/.cache/opencv.js', mode: 'manual', detectDelaySec: 1 }));""")
+              localStorage.setItem('jml.settings.v1', JSON.stringify({ mode: 'manual', detectDelaySec: 1 }));  // OpenCV : chargement automatique (copie locale ./vendor)""")
         page = ctx.new_page(); errors = []
         page.on('pageerror', lambda e: errors.append(str(e)))
         ev = page.evaluate
@@ -92,10 +92,13 @@ try:
             page.wait_for_function('JML.edit || /Échec/.test(document.querySelector("#wzMsg").textContent)', timeout=timeout)
             return ev('JML.edit && { h: JML.edit.detect.heightPx, ref: JML.edit.refCm, conf: JML.edit.detect.confidence, n: JML.edit.detect.success + "/" + JML.edit.detect.frames, ms: JML.edit.detect.ms, spread: JML.edit.detect.spreadPx }'), page.inner_text('#wzMsg')
 
+        # source OpenCV invalide → repli automatique sur la copie locale
+        ev('() => { const el = document.querySelector("input[data-s=opencvUrl]"); el.value = "./introuvable/opencv.js"; el.dispatchEvent(new Event("change")); }')
         for method, exp, label in [('white', exp_a4, '1 · feuille blanche'), ('opencv', exp_a4, '2 · OpenCV'), ('markers', exp_mk, '3 · marqueurs')]:
-            if method == 'opencv' and not os.path.exists(f'{cache}/opencv.js'):
+            if method == 'opencv' and not os.path.exists(os.path.join(ROOT, 'vendor', 'opencv.js')):
                 check(label, True, 'ignoré : OpenCV non fourni'); continue
             r, msg = detect(method)
+            if method == 'opencv': check('OpenCV : repli si la source personnalisée échoue', bool(r), msg)
             if r:
                 got = r['ref'] / r['h']; err = abs(got / exp - 1) * 100
                 check(f'{label} : détectée, erreur < 1 %', err < 1, f"{got:.4f} cm/px (attendu {exp:.4f}) · erreur {err:.2f} % · confiance {r['conf']*100:.0f} % · {r['n']} images · ±{r['spread']:.2f} px · {r['ms']:.0f} ms")

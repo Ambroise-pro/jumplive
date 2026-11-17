@@ -223,7 +223,7 @@
         <button id="btnZoneAll">Zone = image entière</button>
         <button id="btnCalClear" class="warn">Effacer la calibration</button>
       </div>
-      <label class="f">URL d’OpenCV.js (méthode 2)<input type="text" data-s="opencvUrl" spellcheck="false"></label>
+      <label class="f">URL d’OpenCV.js (méthode 2, vide = automatique)<input type="text" data-s="opencvUrl" spellcheck="false" placeholder="./vendor/opencv.js puis CDN"></label>
       <label class="f">Distance caméra–sujet (cm, indicative)<input type="text" inputmode="decimal" data-s="distanceNote" placeholder="ex. 300"></label>
       <div class="muted">Placez une feuille A4 <b>verticale</b> (29,7 cm) dans le <b>même plan de profondeur que le bassin</b> du sauteur (au centre de la zone), puis positionnez les deux repères sur ses bords haut et bas. La distance saisie est une simple note : elle ne sert pas au calcul.</div>
     </div></details>
@@ -309,11 +309,12 @@ const DEF = {
   mpBase: MP_DEFAULT, modelUrl: '',
   bufferSec: 4, bufferWidth: 480, bufferFps: 30,
   showCal: true, showSkeleton: true, showHud: true, distanceNote: '',
-  showWizard: true, detectDelaySec: 5, opencvUrl: 'https://docs.opencv.org/4.10.0/opencv.js', markerDistCm: 20,
+  showWizard: true, detectDelaySec: 5, opencvUrl: '', markerDistCm: 20,
   det: Object.fromEntries(DET_KEYS.map(k => [k, DEFAULTS[k]])),
 };
 const saved = store.get(K.settings, {});
 const S = { ...DEF, ...saved, det: { ...DEF.det, ...(saved.det || {}) } };
+if (S.opencvUrl === 'https://docs.opencv.org/4.10.0/opencv.js') S.opencvUrl = ''; // ancienne valeur par défaut → automatique
 const saveS = () => store.set(K.settings, S);
 let cal = store.get(K.cal, null);
 let zone = store.get(K.zone, null); // { x, y, w, h, videoWidth, videoHeight } en px natifs
@@ -1157,20 +1158,24 @@ function grabFrame() {
   return grabCtx.getImageData(0, 0, W, H);
 }
 
-// OpenCV.js à la demande. Le module est « thenable » et se renvoie lui-même : on le résout emballé dans un objet.
+// OpenCV.js à la demande, essayé dans l'ordre : URL personnalisée, copie locale (servie avec l'application), CDN.
+// Le module est « thenable » et se renvoie lui-même : on le résout emballé dans un objet (jamais `await cv`).
+const OPENCV_SOURCES = [
+  ['copie locale', './vendor/opencv.js'],
+  ['jsDelivr', 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js'],
+  ['opencv.org', 'https://docs.opencv.org/4.10.0/opencv.js'],
+];
 let cvPromise = null;
-function loadOpenCV() {
-  if (cvPromise) return cvPromise;
-  cvPromise = new Promise((resolve, reject) => {
-    if (window.cv?.Mat) { resolve({ cv: window.cv }); return; }
-    const to = setTimeout(() => reject(new Error('délai dépassé (90 s)')), 90000);
+function loadScriptCv(url, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const to = setTimeout(() => { sc.remove(); reject(new Error('délai dépassé')); }, timeoutMs);
     const done = (m) => { clearTimeout(to); resolve({ cv: m }); };
     const sc = document.createElement('script');
-    sc.src = S.opencvUrl; sc.async = true;
-    sc.onerror = () => { clearTimeout(to); reject(new Error('téléchargement impossible (' + S.opencvUrl + ')')); };
+    sc.src = url; sc.async = true;
+    sc.onerror = () => { clearTimeout(to); sc.remove(); reject(new Error('téléchargement impossible')); };
     sc.onload = () => {
       const m = window.cv;
-      if (!m) { clearTimeout(to); reject(new Error('OpenCV introuvable après chargement')); return; }
+      if (!m) { clearTimeout(to); reject(new Error('fichier chargé mais OpenCV absent')); return; }
       if (m.Mat) { done(m); return; }
       if (m instanceof Promise) { m.then((mod) => { window.cv = mod; done(mod); }); return; }
       m.onRuntimeInitialized = () => done(m);
@@ -1178,6 +1183,21 @@ function loadOpenCV() {
     };
     document.head.appendChild(sc);
   });
+}
+function loadOpenCV(onTry = () => {}) {
+  if (cvPromise) return cvPromise;
+  cvPromise = (async () => {
+    if (window.cv?.Mat) return { cv: window.cv };
+    const sources = S.opencvUrl ? [['URL personnalisée', S.opencvUrl], ...OPENCV_SOURCES] : OPENCV_SOURCES;
+    const errors = [];
+    for (let i = 0; i < sources.length; i++) {
+      const [name, url] = sources[i];
+      onTry(name, i + 1, sources.length);
+      try { return await loadScriptCv(url, 90000); }
+      catch (e) { errors.push(`${name} : ${e.message}`); try { delete window.cv; } catch { window.cv = undefined; } }
+    }
+    throw new Error('OpenCV indisponible — ' + errors.join(' · '));
+  })();
   cvPromise.catch(() => { cvPromise = null; });
   return cvPromise;
 }
@@ -1218,8 +1238,7 @@ async function runDetection(method) {
   try {
     let fn;
     if (method === 'opencv') {
-      wzMsg('Téléchargement d’OpenCV (≈ 10 Mo, une seule fois)…');
-      const { cv } = await loadOpenCV();
+      const { cv } = await loadOpenCV((name, i, n) => wzMsg(`Chargement d’OpenCV (≈ 10 Mo) — source ${i}/${n} : ${name}…`));
       fn = (img) => detectSheetOpenCV(cv, img);
     } else if (method === 'markers') fn = (img) => detectMarkers(img, { distCm: S.markerDistCm });
     else fn = (img) => detectWhiteSheet(img);
