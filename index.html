@@ -33,9 +33,9 @@
   #side > * { flex-shrink: 0; }
   .brand { display: flex; align-items: center; justify-content: space-between; font-size: 18px; letter-spacing: .02em; }
   .brand b { color: var(--blue); }
-  #gear { position: relative; width: var(--touch); padding: 0; font-size: 24px; overflow: hidden; }
-  #gear::after { content: ""; position: absolute; left: 0; bottom: 0; height: 4px; width: 0; background: var(--orange); }
-  #gear.pressing::after { width: 100%; transition: width 1s linear; }
+  .gearbtn { position: relative; width: var(--touch); padding: 0; font-size: 24px; overflow: hidden; }
+  .gearbtn::after { content: ""; position: absolute; left: 0; bottom: 0; height: 4px; width: 0; background: var(--orange); }
+  .gearbtn.pressing::after { width: 100%; transition: width 1s linear; }
   .pill { align-self: flex-start; padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: 15px;
     background: var(--panel2); border: 1px solid var(--line); }
   .pill.WAITING { color: var(--mute); } .pill.STABILIZING { color: var(--amber); border-color: var(--amber); }
@@ -101,6 +101,45 @@
   th:first-child, td:first-child { text-align: left; }
   pre.diag { margin: 0; white-space: pre-wrap; font-size: 12px; color: var(--mute); }
 
+  /* Accueil (élèves) */
+  .home { position: fixed; inset: 0; z-index: 12; display: flex; flex-direction: column; gap: 14px; padding: 16px;
+    background: rgba(11, 15, 20, .93); }
+  .homebar { display: flex; justify-content: space-between; align-items: center; font-size: 22px; }
+  .homebar b { color: var(--blue); }
+  .startbtn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    border-radius: 32px; border: 0; background: linear-gradient(160deg, #4ade80, #16a34a); color: #04121c; }
+  .startbtn .big { font-size: clamp(44px, 8vw, 120px); font-weight: 800; line-height: 1.05; }
+  .startbtn .sub { font-size: clamp(16px, 2.2vw, 28px); font-weight: 600; min-height: 1.2em; }
+  .startbtn:disabled { opacity: 1; background: #1f2937; color: #94a3b8; }
+  #homeFlash { min-height: 1.3em; text-align: center; color: var(--amber); font-weight: 600; }
+  /* Consigne géante sur l'image */
+  .bigstate { position: absolute; left: 12px; right: 12px; top: 12px; margin: 0 auto; width: fit-content; z-index: 4;
+    padding: 12px 30px; border-radius: 26px; text-align: center; pointer-events: none; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  .bigstate .bt { font-size: clamp(30px, 5.2vw, 84px); font-weight: 800; line-height: 1.05; }
+  .bigstate .bs { font-size: clamp(16px, 2.1vw, 28px); font-weight: 600; margin-top: 4px; }
+  .bigstate .bs:empty { display: none; }
+  .bigstate.s-WAITING { background: rgba(30, 41, 59, .92); color: #fff; }
+  .bigstate.s-STABILIZING { background: var(--amber); color: #1a1300; }
+  .bigstate.s-READY { background: var(--green); color: #03210f; animation: pulse 1.1s ease-in-out infinite; }
+  .bigstate.s-JUMPING { background: var(--orange); color: #1f0c00; }
+  .bigstate.s-RESULT { background: var(--blue); color: #04121c; }
+  .bigstate.s-REJECT { background: #7f1d1d; color: #fff; }
+  @keyframes pulse { 50% { transform: scale(1.04); } }
+  /* Série de sauts */
+  .sublbl { font-size: 14px; color: var(--mute); margin-bottom: -6px; }
+  .best { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 14px; border-radius: var(--r);
+    background: #13240f; border: 1px solid #2f5d1f; }
+  .best span { color: #bbf7d0; font-weight: 600; } .best b { font-size: clamp(30px, 3.6vw, 52px); color: var(--green); font-variant-numeric: tabular-nums; }
+  .best small { font-size: 18px; color: var(--mute); }
+  .jumps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 32vh; overflow-y: auto; }
+  .jumps li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline; padding: 8px 12px;
+    border-radius: 10px; background: var(--panel2); font-variant-numeric: tabular-nums; }
+  .jumps li b { font-size: 20px; text-align: right; } .jumps li em { font-style: normal; font-size: 13px; color: var(--mute); min-width: 70px; text-align: right; }
+  .jumps li.best { outline: 2px solid var(--green); } .jumps li.best em { color: var(--green); font-weight: 700; }
+  .jumps li.off b { color: var(--amber); } .jumps li.empty { display: block; color: var(--mute); text-align: center; }
+  .endbtn { background: #1e3a8a; border-color: #3b82f6; }
+  .tools { display: grid; gap: 10px; padding: 12px; border: 1px dashed var(--line); border-radius: var(--r); }
+  .tools .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .countdown { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); z-index: 8; display: flex; align-items: center;
     gap: 18px; padding: 10px 14px 10px 26px; border-radius: 22px; background: rgba(11, 15, 20, .82); border: 2px solid var(--orange); }
   .countdown .cdnum { font-size: clamp(72px, 12vw, 150px); font-weight: 800; line-height: 1; color: var(--orange);
@@ -119,6 +158,9 @@
   a.btnlink { display: inline-flex; align-items: center; min-height: var(--touch); padding: 0 18px; border-radius: var(--r);
     border: 1px solid var(--line); background: var(--panel2); color: var(--text); text-decoration: none; font-weight: 600; }
   @media (max-aspect-ratio: 1/1) {
+    .bigstate { padding: 8px 18px; border-radius: 18px; }
+    .bigstate .bt { font-size: clamp(24px, 7.5vw, 64px); }
+    .bigstate .bs { font-size: clamp(14px, 3.6vw, 24px); }
     .wizard { top: auto; height: 56vh; width: 100%; border-left: 0; border-top: 1px solid var(--line); }
     #app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 46vh) 1fr; }
     #side { border-left: 0; border-top: 1px solid var(--line); }
@@ -139,10 +181,12 @@
     <div id="banner" class="banner hidden" role="alert"></div>
     <div id="editbar" class="editbar hidden">
       <div class="txt" id="editTxt"></div>
+      <button id="editRetake" class="hidden">📸 Reprendre la photo</button>
       <button id="editCancel">Annuler</button>
       <button id="editSave" class="primary">Enregistrer</button>
     </div>
     <div id="hud" class="hud"></div>
+    <div id="bigState" class="bigstate hidden" aria-live="polite"><div id="bigTxt" class="bt"></div><div id="bigSub" class="bs"></div></div>
     <div id="countdown" class="countdown hidden" role="timer" aria-live="assertive">
       <div class="cdnum" id="cdNum">5</div>
       <div class="cdtxt" id="cdTxt">Placez la feuille</div>
@@ -172,20 +216,37 @@
 
   <aside id="side">
     <div class="brand"><span>JumpMeasure <b>LIVE</b></span>
-      <button id="gear" title="Paramètres : maintenir 1 seconde" aria-label="Paramètres administrateur (maintenir 1 s)">⚙</button></div>
+      <button id="gear" class="gearbtn" title="Paramètres : maintenir 1 seconde" aria-label="Paramètres administrateur (maintenir 1 s)">⚙</button></div>
     <div id="pill" class="pill WAITING">En attente</div>
     <div id="msg" class="msg">Démarrage de la caméra…</div>
+    <div class="sublbl">Dernier saut</div>
     <div id="resultBox" class="result"><span id="resultVal">—</span><span class="unit">cm</span></div>
     <div id="resultInfo" class="info"></div>
-    <div class="seg" role="group" aria-label="Mode de mesure">
-      <button data-mode="ai">IA</button><button data-mode="manual">Manuel</button>
-    </div>
+    <div class="best"><span>Meilleur saut</span><b><span id="bestVal">—</span> <small>cm</small></b></div>
+    <ol id="jumpList" class="jumps" aria-label="Sauts de la série"></ol>
     <div class="actions">
-      <button id="btnNew">Nouveau saut</button>
-      <button id="btnVerify">Vérifier</button>
+      <button id="btnEnd" class="endbtn">Terminer mes mesures</button>
+      <button id="btnTools" aria-expanded="false">☰ Outils (professeur)</button>
     </div>
-    <div id="compare" class="compare"></div>
+    <div id="tools" class="tools hidden">
+      <div class="seg" role="group" aria-label="Mode de mesure">
+        <button data-mode="ai">IA</button><button data-mode="manual">Manuel</button>
+      </div>
+      <div class="row2">
+        <button id="btnNew">Réarmer</button>
+        <button id="btnVerify">Vérifier</button>
+      </div>
+      <button id="btnDelLast">Supprimer le dernier saut</button>
+      <div id="compare" class="compare"></div>
+    </div>
   </aside>
+</div>
+
+<div id="home" class="home hidden">
+  <div class="homebar"><span>JumpMeasure <b>LIVE</b></span>
+    <button id="homeGear" class="gearbtn" title="Paramètres : maintenir 1 seconde" aria-label="Paramètres administrateur (maintenir 1 s)">⚙</button></div>
+  <button id="btnStart" class="startbtn"><span class="big">Commencer<br>les mesures</span><span id="startSub" class="sub"></span></button>
+  <div id="homeFlash" role="status"></div>
 </div>
 
 <div id="wizard" class="wizard hidden" role="dialog" aria-label="Calibration">
@@ -251,6 +312,7 @@
       <label class="f">Immobilité : écart-type max (cm)<input type="number" min="0.3" max="4" step="0.1" data-d="stableMaxStdCm"></label>
       <label class="f">Durée d’immobilité (ms)<input type="number" min="300" max="3000" step="50" data-d="stableWindowMs"></label>
       <label class="f">Délai avant saut suivant (ms)<input type="number" min="500" max="10000" step="100" data-d="resultHoldMs"></label>
+      <label class="c"><input type="checkbox" data-s="countUncertain"> Compter les mesures incertaines dans le meilleur saut</label>
       <label class="f">Confiance min. hanches<input type="number" min="0.1" max="0.95" step="0.05" data-s="minHipVis"></label>
       <label class="f">Confiance min. pieds<input type="number" min="0.1" max="0.95" step="0.05" data-s="minFootVis"></label>
       <label class="f">Base MediaPipe (JS + wasm)<input type="text" data-s="mpBase" spellcheck="false"></label>
@@ -309,7 +371,7 @@ const DEF = {
   mpBase: MP_DEFAULT, modelUrl: '',
   bufferSec: 4, bufferWidth: 480, bufferFps: 30,
   showCal: true, showSkeleton: true, showHud: true, distanceNote: '',
-  showWizard: true, detectDelaySec: 5, opencvUrl: '', markerDistCm: 20,
+  showWizard: true, detectDelaySec: 5, countUncertain: false, opencvUrl: '', markerDistCm: 20,
   det: Object.fromEntries(DET_KEYS.map(k => [k, DEFAULTS[k]])),
 };
 const saved = store.get(K.settings, {});
@@ -345,6 +407,9 @@ let edit = null;     // édition calibration / zone
 let drag = null, loupe = null;
 const history = []; let histN = 0;
 let shownResult = null;
+let screen = 'home';               // 'home' (accueil élèves) | 'session' (série de sauts)
+let session = null, sessionN = 0;  // série en cours : { n, entries: [...] }
+let prevDetState = null;
 
 /* ================= Utilitaires ================= */
 const fmt = (v, d = 1) => Number.isFinite(v) ? v.toFixed(d).replace('.', ',') : '—';
@@ -467,7 +532,7 @@ function onFrame(t) {
   capture(t);
   runAI(t);
   if (t - lastLumaT > 1000) { lastLumaT = t; checkLight(); }
-  if (!R) dirty = true;
+  if (!R && !edit?.photo) dirty = true;
 }
 
 function checkLight() {
@@ -487,7 +552,7 @@ function bufferDims() {
 }
 
 function capture(t) {
-  if (R || !window.createImageBitmap) return;
+  if (R || screen !== 'session' || !window.createImageBitmap) return;
   if (t - lastCapT < 1000 / S.bufferFps - 3) return;
   if (buf.pending > 2) { perf.capSkipped++; return; }
   lastCapT = t;
@@ -549,7 +614,7 @@ async function loadModel() {
 }
 
 function runAI(t) {
-  if (S.mode !== 'ai' || R || edit || wizardOpen || detecting || aiState !== 'ready' || aiBusy) return;
+  if (S.mode !== 'ai' || screen !== 'session' || R || edit || wizardOpen || detecting || aiState !== 'ready' || aiBusy) return;
   if (t - lastAiT < 1000 / S.aiMaxFps - 3) return;
   aiBusy = true; lastAiT = t;
   const t0 = performance.now();
@@ -564,6 +629,7 @@ function runAI(t) {
   const inside = lastPoses.filter(p => p.hipOk && inZone(p.hip, zoneActive));
   if (inside.length === 1) { poseLog.push({ t, hipY: inside[0].hip.y }); while (poseLog.length && t - poseLog[0].t > 10000) poseLog.shift(); }
   const ev = detector.update({ t, people: lastPoses });
+  if (detector.state !== prevDetState) { if (detector.state === STATES.READY) beep(740, 120); prevDetState = detector.state; }
   if (ev) onDetectorEvent(ev);
   updateUI();
 }
@@ -571,8 +637,14 @@ function runAI(t) {
 function onDetectorEvent(ev) {
   const entry = { id: ++histN, time: new Date(), ai: ev.type === 'result' ? ev.detenteCm : null,
     aiUncertain: ev.uncertain, flightCm: ev.flightCm, issues: ev.issues || [], rejected: ev.type === 'rejected' ? ev.reason : null, manual: null };
-  history.unshift(entry); if (history.length > 200) history.pop();
+  history.unshift(entry); if (history.length > 500) history.pop();
   shownResult = { kind: ev.type === 'result' ? 'ai' : 'rejected', ev, entry };
+  if (session && ev.type === 'result') {
+    const prev = bestOf(session);
+    addToSession(entry);
+    entry.isRecord = eligible(entry) && (!prev || entryValue(entry) > entryValue(prev));
+    beep(entry.isRecord ? 1320 : 880, entry.isRecord ? 260 : 150);
+  } else if (ev.type === 'rejected') beep(300, 200);
   const from = (ev.refT ?? ev.takeoffT ?? ev.t) - 700;
   setTimeout(() => {
     if (R) return; // une revue est ouverte : on ne touche pas au tampon
@@ -580,6 +652,79 @@ function onDetectorEvent(ev) {
     updateUI(true);
   }, 350);
   updateUI(true); renderHistory();
+}
+
+/* ================= Série de sauts (élève autonome) ================= */
+const entryValue = (e) => e.manual ?? e.ai;
+const eligible = (e) => !e.deleted && entryValue(e) != null && (e.manual != null || !e.aiUncertain || S.countUncertain);
+function bestOf(sess) {
+  let b = null;
+  for (const e of sess?.entries || []) if (eligible(e) && (!b || entryValue(e) > entryValue(b))) b = e;
+  return b;
+}
+function addToSession(entry) { entry.session = session.n; entry.idx = session.entries.length + 1; session.entries.push(entry); }
+
+function startSession() {
+  if ($('#btnStart').disabled) return;
+  session = { n: ++sessionN, entries: [], start: new Date() };
+  screen = 'session';
+  detector.reset(); prevDetState = null; shownResult = null; lastPoses = []; setLastClip(null); clearBuffer();
+  $('#tools').classList.add('hidden'); $('#btnTools').setAttribute('aria-expanded', 'false');
+  if (S.mode === 'ai' && aiState !== 'ready' && aiState !== 'loading') loadModel();
+  dirty = true; updateUI(true);
+}
+function endSession() {
+  if (R) closeReview();
+  session = null; screen = 'home';
+  detector.reset(); shownResult = null; lastPoses = []; setLastClip(null); clearBuffer();
+  $('#tools').classList.add('hidden');
+  dirty = true; updateUI(true); renderHistory();
+}
+
+function renderSession() {
+  const list = session?.entries || [], best = bestOf(session);
+  setText($('#bestVal'), best ? fmt(entryValue(best)) : '—');
+  const items = list.slice().reverse().map(e => {
+    const tags = [e === best ? '★ meilleur' : '', e.manual != null ? 'vérifié' : '', e.aiUncertain && e.manual == null ? (S.countUncertain ? '⚠ incertain' : '⚠ non retenu') : ''].filter(Boolean).join(' · ');
+    return `<li class="${e === best ? 'best' : ''}${eligible(e) ? '' : ' off'}"><span>Saut ${e.idx}</span><b>${fmt(entryValue(e))} cm</b><em>${tags}</em></li>`;
+  }).join('');
+  setHTML($('#jumpList'), items || '<li class="empty">Aucun saut pour l’instant</li>');
+}
+
+/** Consigne géante sur l'image, lisible depuis la zone de saut. */
+function updateBigState() {
+  const el = $('#bigState');
+  const show = screen === 'session' && !R && !edit && !detecting && !!vw();
+  el.classList.toggle('hidden', !show);
+  if (!show) return;
+  let txt = '', sub = '', cls = 'WAITING';
+  if (!calStatus.valid) { txt = 'Calibration invalide'; sub = 'Appelez le professeur'; cls = 'REJECT'; }
+  else if (S.mode === 'manual') { txt = 'Mode manuel'; sub = 'Le professeur mesure avec « Vérifier »'; }
+  else if (aiState === 'loading' || aiState === 'idle') { txt = 'Chargement…'; sub = 'Préparation de l’analyse'; }
+  else if (aiState !== 'ready') { txt = 'Analyse indisponible'; sub = 'Appelez le professeur'; cls = 'REJECT'; }
+  else {
+    const m = detector.message || '';
+    switch (detector.state) {
+      case STATES.WAITING:
+        if (/Placez-vous/.test(m)) { txt = 'Placez-vous dans la zone de saut'; sub = 'Tout le corps doit être visible, pieds compris'; }
+        else { txt = m.replace(/^Calibration.*/, 'Calibration invalide'); }
+        break;
+      case STATES.STABILIZING: txt = 'Ne bougez plus…'; sub = 'Repérage de vos hanches'; cls = 'STABILIZING'; break;
+      case STATES.READY: txt = 'VOUS POUVEZ SAUTER\u00a0!'; sub = detector.tiptoe ? 'Montée sur pointes : non comptée' : ''; cls = 'READY'; break;
+      case STATES.JUMPING: txt = 'Saut…'; cls = 'JUMPING'; break;
+      case STATES.RESULT: {
+        const r = detector.lastResult, e = shownResult?.entry;
+        if (r?.type === 'result' && e) {
+          txt = `${fmt(r.detenteCm)} cm`;
+          sub = [`Saut ${e.idx ?? ''}`, e.isRecord ? '🏆 Nouveau record !' : '', r.uncertain ? (S.countUncertain ? 'mesure incertaine' : 'mesure incertaine : non retenue') : ''].filter(Boolean).join(' · ');
+          cls = 'RESULT';
+        } else { txt = 'Saut non mesuré'; sub = (r?.reason || '') + ' — recommencez'; cls = 'REJECT'; }
+        break;
+      }
+    }
+  }
+  el.className = 'bigstate s-' + cls;
+  setText($('#bigTxt'), txt); setText($('#bigSub'), sub);
 }
 
 /* ================= Revue manuelle ================= */
@@ -666,7 +811,7 @@ function saveManual() {
   const v = manualValue();
   if (!Number.isFinite(v)) { flash(calStatus.valid ? 'Placez d’abord les deux lignes (départ et sommet).' : 'Calibration invalide : mesure impossible.'); return; }
   let entry = R.clip.entryId ? history.find(h => h.id === R.clip.entryId) : null;
-  if (!entry) { entry = { id: ++histN, time: new Date(), ai: null, manual: null, issues: [] }; history.unshift(entry); R.clip.entryId = entry.id; }
+  if (!entry) { entry = { id: ++histN, time: new Date(), ai: null, manual: null, issues: [] }; history.unshift(entry); R.clip.entryId = entry.id; if (session) addToSession(entry); }
   entry.manual = v;
   shownResult = { kind: 'manual', entry };
   R.savedValue = v;
@@ -802,7 +947,7 @@ function drawOverlays(fit, forLoupe = false) {
 
 function drawLoupe() {
   if (!loupe) return;
-  const src = R ? R.frames[R.idx].bmp : video;
+  const src = R ? R.frames[R.idx].bmp : (edit?.photo || video);
   const base = currentFit(), M = 3, rad = 75;
   let lx = loupe.view.x, ly = loupe.view.y - 120;
   if (ly - rad < 4) ly = loupe.view.y + 120;
@@ -827,7 +972,7 @@ function render() {
     return;
   }
   const fit = currentFit();
-  drawSource(R ? R.frames[R.idx].bmp : video, fit);
+  drawSource(R ? R.frames[R.idx].bmp : (edit?.photo || video), fit);
   drawOverlays(fit);
   drawLoupe();
 }
@@ -893,19 +1038,26 @@ canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
 
 /* ================= Édition calibration / zone ================= */
-function startEdit(kind, det = null, fromWizard = false) {
+function startEdit(kind, det = null, fromWizard = false, opts = {}) {
   if (!vw()) { flash('Caméra non démarrée.'); return; }
   closeAdmin(); if (R) closeReview(); closeWizard();
-  if (kind === 'cal' && det) {
-    edit = { kind, p1: { ...det.p1 }, p2: { ...det.p2 }, refCm: det.refCm, method: det.method, detect: det, adjusted: false, fromWizard };
-  } else if (kind === 'cal') {
-    const keep = cal && cal.videoWidth === vw() && cal.videoHeight === vh() && (cal.method ?? 'manual') !== 'markers';
-    edit = { kind, p1: keep ? { ...cal.p1 } : { x: vw() / 2, y: vh() * 0.4 }, p2: keep ? { ...cal.p2 } : { x: vw() / 2, y: vh() * 0.6 },
-      refCm: A4_CM, method: 'manual', detect: null, fromWizard };
+  if (kind === 'cal') {
+    const src = opts.method ?? det?.method ?? 'manual';
+    const markers = src === 'markers';
+    const refCm = det?.refCm ?? (markers ? S.markerDistCm : A4_CM);
+    let p1, p2;
+    if (det) { p1 = { ...det.p1 }; p2 = { ...det.p2 }; }
+    else {
+      const keep = cal && cal.videoWidth === vw() && cal.videoHeight === vh() && ((cal.method === 'markers') === markers);
+      p1 = keep ? { ...cal.p1 } : { x: vw() / 2, y: vh() * 0.4 }; p2 = keep ? { ...cal.p2 } : { x: vw() / 2, y: vh() * 0.6 };
+    }
+    edit = { kind, p1, p2, refCm, method: det ? det.method : (markers ? 'markers' : 'manual'), detect: det, adjusted: false,
+      fromWizard, photo: opts.photo || null, sourceMethod: src, failReason: opts.failReason || null };
   } else {
     const z = zoneActive || { x: vw() * 0.25, y: 0, w: vw() * 0.5, h: vh() };
     edit = { kind, rect: { x: z.x, y: z.y, w: z.w, h: z.h } };
   }
+  $('#editRetake').classList.toggle('hidden', !(edit.kind === 'cal' && edit.photo));
   $('#editbar').classList.remove('hidden'); updateEditText(); dirty = true; updateUI(true);
 }
 function updateEditText() {
@@ -913,11 +1065,13 @@ function updateEditText() {
   if (edit.kind === 'cal') {
     const h = Math.hypot(edit.p2.x - edit.p1.x, edit.p2.y - edit.p1.y), d = edit.detect;
     const target = edit.method === 'markers' ? `les <b>centres des deux carrés</b> (${fmt(edit.refCm)} cm)` : 'le <b>haut</b> et le <b>bas</b> de la feuille A4 (29,7 cm)';
-    const head = d ? `Détection « ${METHOD_FR[d.method]} » : ${d.success}/${d.frames} images · confiance ${fmt(d.confidence * 100, 0)} %${edit.adjusted ? ' · <b>ajusté à la main</b>' : ''}. Vérifiez que les repères sont sur ${target}.`
-      : `Placez les deux repères sur ${target}.`;
+    const onPhoto = edit.photo ? ' sur la photo' : '';
+    const head = d ? `Détection « ${METHOD_FR[d.method]} » réussie${onPhoto} · confiance ${fmt(d.confidence * 100, 0)} %${edit.adjusted ? ' · <b>ajusté à la main</b>' : ''}. Vérifiez que les repères sont sur ${target}.`
+      : edit.failReason ? `⚠ Détection « ${METHOD_FR[edit.sourceMethod]} » impossible : ${edit.failReason}. ${edit.photo ? 'Sur la photo, placez' : 'Placez'} les deux repères à la main sur ${target}.`
+      : `${edit.photo ? 'Sur la photo, placez' : 'Placez'} les deux repères sur ${target}.`;
     const warn = d?.warnings?.length ? `<br>⚠ ${d.warnings.join(' · ')}` : '';
     setHTML($('#editTxt'), `${head}
-      <small>${fmt(h, 1)} px natifs → ${fmt(edit.refCm / h, 4)} cm/px (image ${vw()}×${vh()})${d?.spreadPx != null ? ` · stabilité ±${fmt(d.spreadPx, 2)} px` : ''}. Repères ajustables au doigt (loupe).${warn}</small>`);
+      <small>${fmt(h, 1)} px natifs → ${fmt(edit.refCm / h, 4)} cm/px (image ${vw()}×${vh()}). Repères ajustables au doigt (loupe).${warn}</small>`);
   } else {
     setHTML($('#editTxt'), 'Ajustez la zone de saut (coins ou centre). <small>Seul le bassin situé dans cette zone est pris en compte. Les pieds doivent rester visibles dans l’image.</small>');
   }
@@ -937,12 +1091,19 @@ function endEdit(save) {
     flash('Zone de saut enregistrée.', true);
   }
   const back = !save && edit?.fromWizard;
+  edit?.photo?.close?.();
   edit = null; drag = null; loupe = null;
   $('#editbar').classList.add('hidden'); detector.reset(); dirty = true; updateUI(true);
   if (back) openWizard();
 }
 $('#editSave').onclick = () => endEdit(true);
 $('#editCancel').onclick = () => endEdit(false);
+$('#editRetake').onclick = () => {
+  if (!edit?.photo) return;
+  const m = edit.sourceMethod, fw = edit.fromWizard;
+  edit.photo.close?.(); edit = null; drag = null; loupe = null; $('#editbar').classList.add('hidden');
+  runCalibration(m, fw);
+};
 
 /* ================= Interface principale ================= */
 const STATE_FR = { WAITING: 'En attente', STABILIZING: 'Stabilisation', READY: 'Prêt', JUMPING: 'Saut', RESULT: 'Résultat' };
@@ -1009,6 +1170,21 @@ function updateUI(force = false) {
     s += ` | tampon ${fmt(rate(perf.capT, now), 0)}/s · ${buf.frames.length} img`;
     setText(hud, s);
   }
+  // accueil
+  const homeVisible = screen === 'home' && !wizardOpen && !edit && !detecting;
+  $('#home').classList.toggle('hidden', !homeVisible);
+  if (homeVisible) {
+    let ok = true, sub = '';
+    if (!vw()) { ok = false; sub = camError || 'Démarrage de la caméra…'; }
+    else if (!calStatus.valid) { ok = false; sub = 'Calibration nécessaire : maintenez ⚙ (professeur)'; }
+    else if (S.mode === 'manual') sub = 'Mode manuel : le professeur mesure';
+    else if (aiState === 'loading') sub = 'Chargement de l’analyse…';
+    else if (aiState === 'error') sub = 'Analyse automatique indisponible';
+    $('#btnStart').disabled = !ok; setText($('#startSub'), sub);
+    setText($('#homeFlash'), flashMsg && now < flashUntil ? flashMsg.txt : '');
+  }
+  updateBigState();
+  renderSession();
   if (!$('#admin').classList.contains('hidden')) updateAdmin();
   updateWizard();
 }
@@ -1027,6 +1203,19 @@ $('#btnNew').onclick = () => {
   dirty = true; updateUI(true);
 };
 $('#btnVerify').onclick = () => { if (R) closeReview(); else openReview(); };
+$('#btnStart').onclick = startSession;
+$('#btnEnd').onclick = endSession;
+$('#btnTools').onclick = () => {
+  const t = $('#tools'); t.classList.toggle('hidden');
+  $('#btnTools').setAttribute('aria-expanded', String(!t.classList.contains('hidden')));
+};
+$('#btnDelLast').onclick = () => {
+  const e = session?.entries.pop();
+  if (!e) { flash('Aucun saut à supprimer.'); return; }
+  e.deleted = true;
+  if (shownResult?.entry === e) shownResult = null;
+  flash(`Saut ${e.idx} supprimé.`, true); renderHistory(); updateUI(true);
+};
 
 $('#rvPrev').onclick = () => stepFrame(-1);
 $('#rvNext').onclick = () => stepFrame(1);
@@ -1053,12 +1242,14 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ================= Panneau administrateur ================= */
-let pressTimer = null;
-const gear = $('#gear');
-gear.addEventListener('pointerdown', () => { gear.classList.add('pressing'); pressTimer = setTimeout(() => { gear.classList.remove('pressing'); openAdmin(); }, 1000); });
-['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => gear.addEventListener(ev, () => { clearTimeout(pressTimer); gear.classList.remove('pressing'); }));
-gear.addEventListener('click', () => { if ($('#admin').classList.contains('hidden')) flash('Maintenez ⚙ une seconde pour ouvrir les paramètres.', true); });
-gear.addEventListener('contextmenu', (e) => e.preventDefault());
+function bindLongPress(el) {
+  let timer = null;
+  el.addEventListener('pointerdown', () => { el.classList.add('pressing'); timer = setTimeout(() => { el.classList.remove('pressing'); openAdmin(); }, 1000); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => { clearTimeout(timer); el.classList.remove('pressing'); }));
+  el.addEventListener('click', () => { if ($('#admin').classList.contains('hidden')) flash('Maintenez ⚙ une seconde pour ouvrir les paramètres.', true); });
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+bindLongPress($('#gear')); bindLongPress($('#homeGear'));
 
 function openAdmin() { syncInputs(); $('#admin').classList.remove('hidden'); updateAdmin(); renderHistory(); }
 function closeAdmin() { $('#admin').classList.add('hidden'); }
@@ -1089,7 +1280,7 @@ document.querySelectorAll('[data-d]').forEach(el => el.addEventListener('change'
 $('#btnDetDefaults').onclick = () => { S.det = { ...DEF.det }; S.minHipVis = DEF.minHipVis; S.minFootVis = DEF.minFootVis; saveS(); detector.setParams(S.det); syncInputs(); };
 $('#btnCamApply').onclick = () => { if (R) closeReview(); S.deviceLabel = ''; saveS(); startCamera(); };
 $('#btnAiReload').onclick = () => { landmarker = null; aiState = 'idle'; loadModel(); };
-$('#btnCal').onclick = () => startEdit('cal');
+$('#btnCal').onclick = () => runCalibration('manual', false);
 $('#btnWizard').onclick = () => { closeAdmin(); openWizard(); };
 $('#btnZone').onclick = () => startEdit('zone');
 $('#btnZoneAll').onclick = () => { zone = null; store.del(K.zone); revalidate(); flash('Zone : image entière.', true); };
@@ -1126,16 +1317,16 @@ function updateAdmin() {
 }
 
 function renderHistory() {
-  const rows = history.slice(0, 50).map(h => `<tr><td>${h.id} · ${h.time.toLocaleTimeString('fr-FR')}</td>
+  const rows = history.slice(0, 80).map(h => `<tr${h.deleted ? ' style="opacity:.45"' : ''}><td>${h.session ? 'série ' + h.session + ' · ' : ''}${h.idx ? 'saut ' + h.idx : '#' + h.id} · ${h.time.toLocaleTimeString('fr-FR')}${h.deleted ? ' (supprimé)' : ''}</td>
     <td>${h.ai != null ? fmt(h.ai) + (h.aiUncertain ? ' ⚠' : '') : (h.rejected ? 'écartée' : '—')}</td>
     <td>${h.manual != null ? fmt(h.manual) : '—'}</td><td>${h.ai != null && h.manual != null ? fmt(h.manual - h.ai) : ''}</td></tr>`).join('');
   setHTML($('#histTable'), history.length ? `<table><tr><th>Saut</th><th>IA (cm)</th><th>Manuel (cm)</th><th>Écart</th></tr>${rows}</table>` : '<div class="muted">Aucune mesure.</div>');
 }
 $('#btnCsv').onclick = () => {
   const n = (v) => v == null ? '' : v.toFixed(1).replace('.', ',');
-  const lines = ['saut;heure;ia_cm;ia_incertaine;manuel_cm;ecart_cm;vol_indicatif_cm;remarque'];
-  [...history].reverse().forEach(h => lines.push([h.id, h.time.toLocaleTimeString('fr-FR'), n(h.ai), h.aiUncertain ? 'oui' : '',
-    n(h.manual), h.ai != null && h.manual != null ? n(h.manual - h.ai) : '', n(h.flightCm), (h.rejected || h.issues.join(', ')).replace(/;/g, ',')].join(';')));
+  const lines = ['serie;saut;heure;ia_cm;ia_incertaine;manuel_cm;ecart_cm;vol_indicatif_cm;supprime;remarque'];
+  [...history].reverse().forEach(h => lines.push([h.session ?? '', h.idx ?? '', h.time.toLocaleTimeString('fr-FR'), n(h.ai), h.aiUncertain ? 'oui' : '',
+    n(h.manual), h.ai != null && h.manual != null ? n(h.manual - h.ai) : '', n(h.flightCm), h.deleted ? 'oui' : '', (h.rejected || h.issues.join(', ')).replace(/;/g, ',')].join(';')));
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], { type: 'text/csv' }));
   a.download = 'jumpmeasure-session.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -1230,54 +1421,51 @@ $('#cdCancel').onclick = () => { cdCancelled = true; };
 
 function wzMsg(txt, cls = '') { const el = $('#wzMsg'); el.className = 'wmsg ' + cls; el.textContent = txt; }
 
-async function runDetection(method) {
+/**
+ * Calibration : décompte pour aller placer la feuille, PHOTO, détection sur la photo, puis ajustement
+ * des repères sur cette photo figée. method = 'white' | 'opencv' | 'markers' | 'manual'.
+ */
+async function runCalibration(method, fromWizard = true) {
   if (detecting || !vw()) return;
   detecting = true;
-  const btn = document.querySelector(`[data-detect="${method}"]`); btn.classList.add('busy');
+  const btn = document.querySelector(`[data-detect="${method}"]`); btn?.classList.add('busy');
   document.querySelectorAll('[data-detect]').forEach(b => { b.disabled = true; });
   try {
-    let fn;
+    let fn = null;
     if (method === 'opencv') {
       const { cv } = await loadOpenCV((name, i, n) => wzMsg(`Chargement d’OpenCV (≈ 10 Mo) — source ${i}/${n} : ${name}…`));
       fn = (img) => detectSheetOpenCV(cv, img);
     } else if (method === 'markers') fn = (img) => detectMarkers(img, { distCm: S.markerDistCm });
-    else fn = (img) => detectWhiteSheet(img);
+    else if (method === 'white') fn = (img) => detectWhiteSheet(img);
     const delay = Math.max(0, Math.min(30, Math.round(S.detectDelaySec || 0)));
-    const what = method === 'markers' ? 'la feuille à marqueurs' : 'la feuille blanche';
-    if (delay > 0) {
-      closeWizard(); updateUI(true);
-      if (!(await countdown(delay, `Placez ${what} au niveau du bassin, puis éloignez-vous`))) {
-        hideCountdown(); openWizard(); wzMsg('Détection annulée.'); return;
-      }
+    const what = method === 'markers' ? 'la feuille à marqueurs' : 'la feuille A4';
+    closeWizard(); closeAdmin(); updateUI(true);
+    if (delay > 0 && !(await countdown(delay, `Placez ${what} au niveau du bassin, puis éloignez-vous`))) {
+      hideCountdown(); if (fromWizard) { openWizard(); wzMsg('Calibration annulée.'); } return;
     }
-    const K = method === 'opencv' ? 3 : 5, results = [];
-    showCountdown('✓', 'Ne bougez plus : analyse…', true); beep(990, 220);
-    for (let i = 0; i < K; i++) {
-      wzMsg(`Analyse de l’image ${i + 1}/${K}…`);
-      await new Promise(r => setTimeout(r, 90));
-      try { results.push(fn(grabFrame())); } catch (e) { results.push({ ok: false, reason: 'Erreur : ' + (e?.message || e) }); }
+    showCountdown('📸', 'Photo !', true); beep(990, 220);
+    const img = grabFrame();
+    let photo;
+    try { photo = await createImageBitmap(img); }
+    catch { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').putImageData(img, 0, 0); photo = c; }
+    let res = null;
+    if (fn) {
+      try { res = fn(img); } catch (e) { res = { ok: false, reason: 'Erreur : ' + (e?.message || e) }; }
+      res = { ...res, method, frames: 1, success: res.ok ? 1 : 0 };
+      wzResults[method] = res;
     }
-    const res = combineDetections(results);
-    res.method = method;
-    wzResults[method] = res;
-    hideCountdown();
-    if (!res.ok || res.success < Math.ceil(K / 2)) {
-      res.ok = false;
-      openWizard();
-      wzMsg(`Échec : ${res.reason || 'détection instable'} (${res.success}/${K} images).`, 'err');
-      updateWizard();
-      return;
-    }
-    wzMsg('');
-    startEdit('cal', res, true);
+    await new Promise(r => setTimeout(r, 250));
+    hideCountdown(); wzMsg('');
+    startEdit('cal', res?.ok ? res : null, fromWizard, { photo, method, failReason: res && !res.ok ? (res.reason || 'échec') : null });
   } catch (e) {
-    hideCountdown(); openWizard();
+    hideCountdown(); if (fromWizard) openWizard();
     wzResults[method] = { ok: false, method, reason: e?.message || String(e) };
     wzMsg(`Échec : ${e?.message || e}`, 'err');
     updateWizard();
   } finally {
-    detecting = false; btn.classList.remove('busy');
+    detecting = false; btn?.classList.remove('busy');
     document.querySelectorAll('[data-detect]').forEach(b => { b.disabled = !vw(); });
+    updateUI(true);
   }
 }
 
@@ -1293,16 +1481,16 @@ function updateWizard() {
   const rows = ['white', 'opencv', 'markers'].filter(m => wzResults[m]);
   const okv = rows.filter(m => wzResults[m].ok).map(m => wzResults[m].refCm / wzResults[m].heightPx);
   const ref = okv.length ? okv.slice().sort((a, b) => a - b)[okv.length >> 1] : NaN;
-  setHTML($('#wzTable'), rows.length ? `<table><tr><th>Méthode</th><th>cm/px</th><th>Écart</th><th>Confiance</th><th>Images</th><th>ms</th></tr>${rows.map(m => {
+  setHTML($('#wzTable'), rows.length ? `<table><tr><th>Méthode</th><th>cm/px</th><th>Écart</th><th>Confiance</th><th>ms</th></tr>${rows.map(m => {
     const r = wzResults[m];
-    if (!r.ok) return `<tr><td>${METHOD_FR[m]}</td><td colspan="5" class="bad" style="text-align:left">${(r.reason || 'échec').replace(/</g, '&lt;')}</td></tr>`;
+    if (!r.ok) return `<tr><td>${METHOD_FR[m]}</td><td colspan="4" class="bad" style="text-align:left">${(r.reason || 'échec').replace(/</g, '&lt;')}</td></tr>`;
     const v = r.refCm / r.heightPx;
-    return `<tr><td>${METHOD_FR[m]}</td><td>${fmt(v, 4)}</td><td>${okv.length > 1 ? fmt(Math.round((v / ref - 1) * 1000) / 10 || 0, 1) + ' %' : ''}</td><td>${fmt(r.confidence * 100, 0)} %</td><td>${r.success}/${r.frames}</td><td>${fmt(r.ms, 0)}</td></tr>`;
+    return `<tr><td>${METHOD_FR[m]}</td><td>${fmt(v, 4)}</td><td>${okv.length > 1 ? fmt(Math.round((v / ref - 1) * 1000) / 10 || 0, 1) + ' %' : ''}</td><td>${fmt(r.confidence * 100, 0)} %</td><td>${fmt(r.ms, 0)}</td></tr>`;
   }).join('')}</table><div class="muted">Sur la feuille à marqueurs, les trois méthodes mesurent le même objet : les écarts indiquent leur cohérence.</div>` : '');
 }
 
-document.querySelectorAll('[data-detect]').forEach(b => b.addEventListener('click', () => runDetection(b.dataset.detect)));
-$('#wzManual').onclick = () => startEdit('cal', null, true);
+document.querySelectorAll('[data-detect]').forEach(b => b.addEventListener('click', () => runCalibration(b.dataset.detect, true)));
+$('#wzManual').onclick = () => runCalibration('manual', true);
 $('#wzContinue').onclick = () => { closeWizard(); detector.reset(); updateUI(true); };
 
 /* ================= Veille, visibilité ================= */
@@ -1315,7 +1503,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ================= Démarrage ================= */
-window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, detector, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
+window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, detector, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
 resizeCanvas();
 if (S.showWizard) openWizard();
 startCamera();

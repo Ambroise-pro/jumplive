@@ -24,7 +24,9 @@ export class PoseLandmarker {
     if (this.t0 == null) this.t0 = t;
     const W = video.videoWidth, H = video.videoHeight, cmPx = window.__MOCK_CMPX ?? 0.2475;
     const period = window.__MOCK_PERIOD ?? 7000;
-    const { rise, lift } = profile((t - this.t0) % period, 2500, window.__MOCK_FLIGHT ?? 30);
+    const cycle = Math.floor((t - this.t0) / period), fl = window.__MOCK_FLIGHTS;
+    const flight = fl ? fl[cycle % fl.length] : (window.__MOCK_FLIGHT ?? 30);   // un saut par période, hauteurs variables
+    const { rise, lift } = profile((t - this.t0) % period, 2500, flight);
     const x = W * 0.5, hipY = H * 0.55 - rise / cmPx, footY = H * 0.93 - lift / cmPx;
     const n = (px, py, v = 0.95) => ({ x: px / W, y: py / H, z: 0, visibility: v });
     const l = Array.from({ length: 33 }, () => n(x, H * 0.2, 0.9));

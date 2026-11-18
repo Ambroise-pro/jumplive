@@ -46,7 +46,7 @@ La calibration est enregistrée dans le navigateur (`localStorage`) avec la cam�
 
 ## Calibration automatique (3 méthodes à comparer)
 
-L'écran de démarrage propose trois boutons. Après un appui, un **compte à rebours de 5 s** (réglable de 0 à 30 s, avec un bip à chaque seconde et un bouton *Annuler*) laisse le temps d'aller placer la feuille. Chaque méthode analyse ensuite 5 images (3 pour OpenCV), combine les résultats (médiane), puis **affiche ce qu'il a trouvé** (contour ou marqueurs en vert) avec la confiance et la stabilité. Tu valides avec *Enregistrer* ou tu ajustes les repères au doigt. *Annuler* revient à l'écran de choix. Un tableau compare les méthodes déjà essayées.
+L'écran de démarrage propose trois boutons, plus *Repères à la main*. Après un appui, un **compte à rebours de 5 s** (réglable de 0 à 30 s, avec un bip à chaque seconde et un bouton *Annuler*) laisse le temps d'aller placer la feuille. À la fin du décompte, l'application **prend une photo** et lance la détection dessus. La photo reste affichée, figée : tu vérifies, tu ajustes les repères au doigt (avec une loupe), tu peux reprendre une photo, puis tu enregistres. Si la détection échoue, la raison s'affiche et tu places les repères à la main sur la même photo. Un tableau compare les méthodes déjà essayées.
 
 1. **Feuille blanche** (JavaScript pur, aucun téléchargement) : cherche une zone claire aux proportions d'une A4 verticale, puis mesure les bords haut et bas au gradient sous-pixel. Il faut un fond **plus sombre** que la feuille. Les murs blancs, les fenêtres et les tapis clairs peuvent tromper la détection : un avertissement s'affiche si une autre forme comparable est trouvée.
 2. **Feuille blanche — OpenCV** : OpenCV.js (≈ 10 Mo) trouve le quadrilatère de la feuille, puis les bords sont remesurés comme en 1. En effet, les contours OpenCV sont décalés d'environ 1 px vers l'intérieur, ce qui donnait jusqu'à 5 % d'erreur sur une petite feuille. C'est plus robuste qu'en 1 face aux fonds chargés. OpenCV est **inclus dans le dépôt** (`vendor/opencv.js`, version 4.10.0 du paquet npm `@techstark/opencv-js`, licence Apache 2.0) et servi avec l'application. Si cette copie manque, l'application essaie jsDelivr, puis docs.opencv.org. Une URL personnalisée peut être saisie dans *Paramètres → Calibration*.
@@ -54,13 +54,21 @@ L'écran de démarrage propose trois boutons. Après un appui, un **compte à re
 
 Une limite commune aux trois : la détection ne vérifie **pas** que la feuille est au même plan de profondeur que le bassin. La feuille doit être **retirée avant de sauter**, puisqu'elle est à l'emplacement du saut ; elle ne peut donc pas servir à détecter un déplacement de la caméra pendant la séance.
 
-## Utilisation
+## Utilisation en classe (élèves autonomes)
 
-- **Mode IA** : l'élève entre dans la zone (« Placez-vous dans la zone »), reste immobile (« Restez immobile… »), puis saute quand « Prêt — sautez ! » s'affiche. La détente s'affiche en grand. Le saut suivant est armé automatiquement après quelques secondes, une fois l'élève de nouveau immobile.
-- **Vérifier** : rejoue les images du dernier saut (tampon circulaire). Les lignes sont pré-placées depuis l'IA. Choisir l'image de départ et l'image du sommet, ajuster les lignes au doigt ou avec ▲▼ (1 pixel natif), zoom ×2/×3, puis *Valider* : l'écart manuel − IA s'affiche.
-- **Mode manuel** : pas d'IA. Après le saut, *Figer et mesurer* fige les 3 à 5 dernières secondes, puis même procédure.
-- **Nouveau saut** : réinitialise l'essai sans couper la caméra ni toucher à la calibration.
-- **Mesures de la session** (paramètres) : tableau IA / manuel / écart, export CSV. Rien n'est conservé après fermeture de la page.
+1. **Accueil** : un grand bouton **« Commencer les mesures »**. Il reste grisé tant que la calibration n'est pas valide, et le motif est affiché dessous.
+2. L'élève appuie, puis va se placer dans la zone de saut. Les consignes s'affichent **en très grand sur l'image** :
+   - « Placez-vous dans la zone de saut » : il faut voir tout le corps, pieds compris ;
+   - « Ne bougez plus… » : repérage de la position des hanches ;
+   - **« VOUS POUVEZ SAUTER ! »** (vert, avec un bip) ;
+   - puis le résultat, par exemple « 38,2 cm · Saut 2 · 🏆 Nouveau record ! ».
+3. L'élève **enchaîne les sauts sans toucher la tablette**. Après chaque saut, il se replace et s'immobilise ; la consigne repasse au vert.
+4. Le panneau de droite affiche le dernier saut, le **meilleur saut** et la liste des sauts de la série. Une mesure « incertaine » est affichée mais **non retenue** pour le meilleur saut (réglable dans *Paramètres → Analyse IA*). Un saut écarté (deux personnes, perte de suivi…) affiche « Saut non mesuré » avec la raison.
+5. **« Terminer mes mesures »** ferme la série et revient à l'accueil pour l'élève suivant.
+
+**Outils (professeur)**, en bas du panneau : choix IA / Manuel, *Réarmer*, *Vérifier* (revue image par image du dernier saut ; la valeur validée remplace celle de l'IA dans la série, marquée « vérifié »), *Supprimer le dernier saut*. En mode manuel, *Figer et mesurer* ajoute la mesure à la série.
+
+**Mesures de la session** (paramètres) : toutes les séries, avec IA, manuel, écart et sauts supprimés, exportables en CSV. Elles sont anonymes et ne sont pas conservées après fermeture de la page.
 
 Clavier (ordinateur, en vérification) : ←/→ image par image, ↑/↓ ligne (Maj = 5 px).
 
@@ -120,11 +128,11 @@ Puis, dans *Paramètres → Analyse IA* : Base MediaPipe = `./vendor/mediapipe`,
 ```bash
 node --test tests/*.test.mjs                 # 65 tests : conversions, repères, calibration, détecteur, détection de feuille
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
-python3 tests/e2e_calibration.py /chemin/chrome   # 12 vérifications : les 3 boutons via fausse caméra
-pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 21 vérifications de bout en bout
+python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications : les 3 boutons via fausse caméra
+pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 31 vérifications de bout en bout
 ```
 
-**Vérifié par les tests automatiques (caméra simulée de Chrome et faux modèle IA)** : démarrage caméra, message explicite si le modèle IA ne se charge pas, appui long pour les paramètres, calibration au doigt en affichage miroir (120 px natifs → 0,2475 cm/px), persistance après rechargement, invalidation si la résolution change ou en cas de rotation, tampon figé et revue image par image, mesure manuelle exacte (lignes en pixels natifs), glisser au doigt, nouveau saut sans perte de calibration, parcours complet de la machine à états avec un saut simulé mesuré à 38,0 cm (attendu 38), vérification pré-remplie depuis l'IA, aucune mesure à deux personnes, mise en page smartphone et tablette en portrait. Côté détecteur (séquences simulées) : montée sur pointes, saut avorté, perte de suivi, deuxième personne qui entre pendant le saut ou reste hors zone, rebond après réception, cadence IA faible, confiance faible.
+**Vérifié par les tests automatiques (caméra simulée de Chrome et faux modèle IA)** : démarrage caméra, message explicite si le modèle IA ne se charge pas, appui long pour les paramètres, calibration au doigt en affichage miroir (120 px natifs → 0,2475 cm/px), persistance après rechargement, invalidation si la résolution change ou en cas de rotation, tampon figé et revue image par image, mesure manuelle exacte (lignes en pixels natifs), glisser au doigt, nouveau saut sans perte de calibration, parcours complet de la machine à états avec un saut simulé mesuré à 38,0 cm (attendu 38), vérification pré-remplie depuis l'IA, aucune mesure à deux personnes, mise en page smartphone et tablette en portrait. Côté détecteur (séquences simulées) : montée sur pointes, saut avorté, perte de suivi, deuxième personne qui entre pendant le saut ou reste hors zone, rebond après réception, cadence IA faible, confiance faible. Nouveau parcours : accueil bloqué sans calibration ; calibration sur photo figée (manuelle, après échec de détection, ou en reprenant la photo) ; série de 3 sauts simulés enchaînés sans interaction (38,0, 47,9 et 32,7 cm), meilleur saut et record correctement signalés ; vérification et suppression du dernier saut ; « Terminer mes mesures » qui ramène à l'accueil.
 
 **Calibration automatique (images synthétiques)** : sur 6 cas (droite, inclinée de 4°, petite, grande, objets parasites, bruit fort), l'erreur sur la valeur en cm/px est ≤ 0,04 % pour les méthodes 1 et 2 et ≤ 0,33 % pour la méthode 3. Il n'y a pas de fausse détection sans feuille, et les carrés noirs pleins ne sont pas pris pour des marqueurs. Dans Chrome, la vraie feuille imprimable incrustée dans une scène de gymnase et diffusée comme caméra donne 0,05 % (1), 0,05 % (2) et 0,11 % (3) d'erreur. Ces images restent idéalisées : pas de reflet, pas de pli, pas de flou de bouger, pas de distorsion d'objectif.
 

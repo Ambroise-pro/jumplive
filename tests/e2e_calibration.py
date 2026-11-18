@@ -90,7 +90,8 @@ try:
         def detect(method, timeout=90000):
             page.click(f'[data-detect="{method}"]')
             page.wait_for_function('JML.edit || /Échec/.test(document.querySelector("#wzMsg").textContent)', timeout=timeout)
-            return ev('JML.edit && { h: JML.edit.detect.heightPx, ref: JML.edit.refCm, conf: JML.edit.detect.confidence, n: JML.edit.detect.success + "/" + JML.edit.detect.frames, ms: JML.edit.detect.ms, spread: JML.edit.detect.spreadPx }'), page.inner_text('#wzMsg')
+            msg = page.inner_text('#editTxt') if ev('!!JML.edit') else page.inner_text('#wzMsg')
+            return ev('JML.edit && JML.edit.detect && { h: JML.edit.detect.heightPx, ref: JML.edit.refCm, conf: JML.edit.detect.confidence, ms: JML.edit.detect.ms, photo: !!JML.edit.photo }'), msg
 
         # source OpenCV invalide → repli automatique sur la copie locale
         ev('() => { const el = document.querySelector("input[data-s=opencvUrl]"); el.value = "./introuvable/opencv.js"; el.dispatchEvent(new Event("change")); }')
@@ -101,13 +102,16 @@ try:
             if method == 'opencv': check('OpenCV : repli si la source personnalisée échoue', bool(r), msg)
             if r:
                 got = r['ref'] / r['h']; err = abs(got / exp - 1) * 100
-                check(f'{label} : détectée, erreur < 1 %', err < 1, f"{got:.4f} cm/px (attendu {exp:.4f}) · erreur {err:.2f} % · confiance {r['conf']*100:.0f} % · {r['n']} images · ±{r['spread']:.2f} px · {r['ms']:.0f} ms")
+                check(f'{label} : détectée sur la photo, erreur < 1 %', err < 1 and r['photo'], f"{got:.4f} cm/px (attendu {exp:.4f}) · erreur {err:.2f} % · confiance {r['conf']*100:.0f} % · {r['ms']:.0f} ms")
                 page.screenshot(path=f'{OUT}/02_{method}.png')
                 if method != 'markers': page.click('#editCancel'); page.wait_for_timeout(300)
             else:
                 check(f'{label} : détectée', False, msg)
                 ev('() => { if (JML.edit) document.querySelector("#editCancel").click(); }')
 
+        # la photo reste figée pendant l'ajustement
+        f1 = ev('document.querySelector("#view").toDataURL().length'); page.wait_for_timeout(600)
+        check('photo figée pendant l’ajustement', ev('!!JML.edit.photo') and ev('document.querySelector("#view").toDataURL().length') == f1)
         page.click('#editSave'); page.wait_for_timeout(300)
         cal = ev('JML.cal')
         check('calibration « marqueurs » enregistrée (étalon 20 cm)', cal and cal['method'] == 'markers' and cal['refCm'] == 20 and ev('JML.calStatus.valid'),
@@ -123,7 +127,15 @@ try:
         set_num('input[data-s="markerDistCm"]', 19.5)
         r, msg = detect('markers')
         check('distance de marqueurs saisie prise en compte', r and abs(r['ref'] - 19.5) < 1e-9, msg)
-        page.click('#editCancel'); page.click('#wzContinue')
+        # reprendre la photo
+        page.click('#editRetake'); page.wait_for_function('JML.edit && JML.edit.photo', timeout=20000)
+        check('reprendre la photo → nouveau décompte et nouvelle photo', ev('JML.edit.sourceMethod') == 'markers' and ev('!!JML.edit.detect'))
+        page.click('#editCancel'); page.wait_for_timeout(300)
+        # repères à la main : décompte puis photo, sans détection
+        page.click('#wzManual'); page.wait_for_function('JML.edit && JML.edit.photo', timeout=20000)
+        check('repères à la main sur photo', ev('JML.edit.detect') is None and ev('JML.edit.method') == 'manual' and 'Sur la photo' in page.inner_text('#editTxt'))
+        page.click('#editCancel'); page.wait_for_timeout(300); page.click('#wzContinue'); page.wait_for_timeout(300)
+        check('continuer → accueil élèves', not ev('document.querySelector("#home").classList.contains("hidden")') and not ev('document.querySelector("#btnStart").disabled'))
         check('aucune erreur JavaScript', not errors, '; '.join(errors)[:300])
         b.close()
 finally:
