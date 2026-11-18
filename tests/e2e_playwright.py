@@ -138,6 +138,7 @@ try:
         t0 = time.time()
         while time.time() - t0 < 26 and ev('JML.session.entries.length') < 3:
             st = ev('JML.detector.state'); seen.add(st); texts.add(page.inner_text('#bigTxt'))
+            if ev('JML.showingResultPhoto()'): seen.add('PHOTO')
             if st == 'READY' and 'ready' not in shots: page.screenshot(path=f'{OUT}/03_vous_pouvez_sauter.png'); shots.add('ready')
             if st == 'RESULT' and ev('JML.session.entries.length') == 2 and 'res' not in shots:
                 page.wait_for_timeout(200); page.screenshot(path=f'{OUT}/04_resultat_record.png'); shots.add('res')
@@ -151,8 +152,26 @@ try:
         check('meilleur saut retenu', best and abs(best['ai'] - max(vals)) < 1e-9 and page.inner_text('#bestVal').replace(',', '.') == f'{max(vals):.1f}',
               page.inner_text('#bestVal'))
         check('record signalé au 2e saut', ev('JML.session.entries[1].isRecord') and not ev('JML.session.entries[2].isRecord'))
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(800)
         page.screenshot(path=f'{OUT}/05_serie_3_sauts.png')
+
+        # 6b. Photo au sommet : affichée pendant le résultat, vignette, visionneuse, envoi
+        check('photo au sommet affichée à l’écran pendant le résultat', 'PHOTO' in seen)
+        ph = ev('JML.session.entries.map(e => e.photo && { w: e.photo.w, h: e.photo.h, kb: Math.round(e.photo.blob.size / 1024) })')
+        check('photo au sommet enregistrée pour chaque saut', all(ph) and ph[0]['w'] == W and ph[0]['h'] == H + round(H * 0.22), str(ph))
+        apex_ok = ev('JML.session.entries.every(e => e.apex && Math.abs(e.apex.apexY - (e.apex.refY - e.ai / JML.cal.cmPerPx)) < 0.01)')
+        check('lignes départ/sommet de la photo = valeurs mesurées', apex_ok)
+        page.click('#lastPhoto'); page.wait_for_timeout(500)
+        nat = ev('[document.querySelector("#viewerImg").naturalWidth, document.querySelector("#viewerImg").naturalHeight]')
+        check('visionneuse : photo + performance', ev('JML.viewerOpen') and nat[0] == W and 'Mail' in page.inner_text('#vMsg'), f'{nat}')
+        page.screenshot(path=f'{OUT}/05b_photo_sommet.png')
+        n_before = ev('JML.session.entries.length'); page.wait_for_timeout(3000)
+        check('analyse en pause pendant la visionneuse', ev('JML.session.entries.length') == n_before)
+        with page.expect_download() as dl:
+            page.click('#vShare')
+        check('envoyer : partage système ou, à défaut, photo enregistrée', dl.value.suggested_filename.endswith('cm.jpg'), dl.value.suggested_filename)
+        page.click('#vClose')
+        check('fermeture de la visionneuse', not ev('JML.viewerOpen'))
 
         # 7. Vérification du dernier saut pré-remplie depuis l'IA (outils), suppression du dernier saut
         tools(); page.click('#btnVerify'); page.wait_for_timeout(300)
@@ -169,7 +188,8 @@ try:
         check('deux personnes : pas de mesure', ev('JML.session.entries.length') == n0, page.inner_text('#bigTxt'))
         ev('() => { window.__MOCK_TWO = false; }')
         page.click('#btnEnd'); page.wait_for_timeout(300)
-        check('terminer → accueil, historique conservé côté professeur', ev('JML.screen') == 'home' and ev('JML.history.length') >= 3)  # historique en mémoire (rechargé à l’étape 6)
+        check('terminer → accueil, historique conservé côté professeur', ev('JML.screen') == 'home' and ev('JML.history.length') >= 3)
+        check('photos effacées à la fin de la série', ev('JML.history.every(h => !h.photo && !h.apex)'))  # historique en mémoire (rechargé à l’étape 6)
         page.screenshot(path=f'{OUT}/06_accueil.png')
 
         # 9. Rotation simulée (calibration enregistrée en orientation inverse)

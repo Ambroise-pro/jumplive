@@ -64,7 +64,11 @@ Une limite commune aux trois : la détection ne vérifie **pas** que la feuille 
    - puis le résultat, par exemple « 38,2 cm · Saut 2 · 🏆 Nouveau record ! ».
 3. L'élève **enchaîne les sauts sans toucher la tablette**. Après chaque saut, il se replace et s'immobilise ; la consigne repasse au vert.
 4. Le panneau de droite affiche le dernier saut, le **meilleur saut** et la liste des sauts de la série. Une mesure « incertaine » est affichée mais **non retenue** pour le meilleur saut (réglable dans *Paramètres → Analyse IA*). Un saut écarté (deux personnes, perte de suivi…) affiche « Saut non mesuré » avec la raison.
-5. **« Terminer mes mesures »** ferme la série et revient à l'accueil pour l'élève suivant.
+5. **Photo au sommet** : à chaque saut, l'image où les hanches sont au plus haut est gardée en pleine résolution. Elle s'affiche sur l'écran pendant le résultat, puis en vignette dans le panneau ; on peut toucher la vignette ou un saut marqué 📷 dans la liste. La photo agrandie porte la performance, les lignes départ/sommet, le numéro du saut et la date, et propose :
+   - **📧 Envoyer par e-mail** : ouvre le menu de partage de la tablette ; l'élève choisit *Mail* et saisit son adresse. La photo ne passe par aucun serveur de l'application, mais **elle part depuis le compte mail configuré sur la tablette**, qui en garde une copie dans ses messages envoyés. Si le navigateur ne permet pas le partage de fichiers, la photo est enregistrée.
+   - **⬇ Enregistrer** sur l'appareil.
+   L'analyse est en pause tant que la photo est ouverte (fermeture automatique au bout de 2 min). Les photos sont **effacées à la fin de chaque série**. Les deux fonctions se désactivent dans *Paramètres → Affichage*. **Droit à l'image** : vérifiez les autorisations des élèves et de leurs responsables avant d'activer l'envoi.
+6. **« Terminer mes mesures »** ferme la série et revient à l'accueil pour l'élève suivant.
 
 **Outils (professeur)**, en bas du panneau : choix IA / Manuel, *Réarmer*, *Vérifier* (revue image par image du dernier saut ; la valeur validée remplace celle de l'IA dans la série, marquée « vérifié »), *Supprimer le dernier saut*. En mode manuel, *Figer et mesurer* ajoute la mesure à la série.
 
@@ -129,7 +133,7 @@ Puis, dans *Paramètres → Analyse IA* : Base MediaPipe = `./vendor/mediapipe`,
 node --test tests/*.test.mjs                 # 65 tests : conversions, repères, calibration, détecteur, détection de feuille
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
 python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications : les 3 boutons via fausse caméra
-pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 31 vérifications de bout en bout
+pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 39 vérifications de bout en bout
 ```
 
 **Vérifié par les tests automatiques (caméra simulée de Chrome et faux modèle IA)** : démarrage caméra, message explicite si le modèle IA ne se charge pas, appui long pour les paramètres, calibration au doigt en affichage miroir (120 px natifs → 0,2475 cm/px), persistance après rechargement, invalidation si la résolution change ou en cas de rotation, tampon figé et revue image par image, mesure manuelle exacte (lignes en pixels natifs), glisser au doigt, nouveau saut sans perte de calibration, parcours complet de la machine à états avec un saut simulé mesuré à 38,0 cm (attendu 38), vérification pré-remplie depuis l'IA, aucune mesure à deux personnes, mise en page smartphone et tablette en portrait. Côté détecteur (séquences simulées) : montée sur pointes, saut avorté, perte de suivi, deuxième personne qui entre pendant le saut ou reste hors zone, rebond après réception, cadence IA faible, confiance faible. Nouveau parcours : accueil bloqué sans calibration ; calibration sur photo figée (manuelle, après échec de détection, ou en reprenant la photo) ; série de 3 sauts simulés enchaînés sans interaction (38,0, 47,9 et 32,7 cm), meilleur saut et record correctement signalés ; vérification et suppression du dernier saut ; « Terminer mes mesures » qui ramène à l'accueil.

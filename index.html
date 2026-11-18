@@ -140,6 +140,17 @@
   .endbtn { background: #1e3a8a; border-color: #3b82f6; }
   .tools { display: grid; gap: 10px; padding: 12px; border: 1px dashed var(--line); border-radius: var(--r); }
   .tools .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* Photo au sommet */
+  .thumb { display: grid; gap: 6px; padding: 8px; text-align: center; min-height: 0; }
+  .thumb img { width: 100%; max-height: 19vh; object-fit: contain; border-radius: 10px; display: block; }
+  .thumb span { font-size: 15px; }
+  .viewer { position: fixed; inset: 0; z-index: 16; background: rgba(0, 0, 0, .94); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; padding: 16px; }
+  .viewer img { max-width: 100%; max-height: calc(100% - 150px); object-fit: contain; border-radius: 12px; }
+  .viewer .vbar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .viewer .vbar button { min-height: 60px; font-size: 19px; padding: 0 22px; }
+  .viewer #vMsg { color: #cbd5e1; text-align: center; max-width: 720px; min-height: 1.3em; }
+  .jumps li[data-id] { cursor: pointer; }
   .countdown { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); z-index: 8; display: flex; align-items: center;
     gap: 18px; padding: 10px 14px 10px 26px; border-radius: 22px; background: rgba(11, 15, 20, .82); border: 2px solid var(--orange); }
   .countdown .cdnum { font-size: clamp(72px, 12vw, 150px); font-weight: 800; line-height: 1; color: var(--orange);
@@ -222,6 +233,8 @@
     <div class="sublbl">Dernier saut</div>
     <div id="resultBox" class="result"><span id="resultVal">—</span><span class="unit">cm</span></div>
     <div id="resultInfo" class="info"></div>
+    <button id="lastPhoto" class="thumb hidden" aria-label="Voir la photo au sommet du dernier saut">
+      <img id="lastPhotoImg" alt=""><span>📷 Photo au sommet — voir / envoyer</span></button>
     <div class="best"><span>Meilleur saut</span><b><span id="bestVal">—</span> <small>cm</small></b></div>
     <ol id="jumpList" class="jumps" aria-label="Sauts de la série"></ol>
     <div class="actions">
@@ -268,6 +281,16 @@
   <label class="f">Distance mesurée entre les centres des carrés (cm)<input type="number" step="0.1" min="5" max="28" data-s="markerDistCm"></label>
   <label class="c"><input type="checkbox" data-s="showWizard"> Afficher cet écran au démarrage</label>
   <div class="btnrow"><button id="wzContinue" class="primary">Continuer</button></div>
+</div>
+
+<div id="viewer" class="viewer hidden" role="dialog" aria-label="Photo au sommet du saut">
+  <img id="viewerImg" alt="">
+  <div class="vbar">
+    <button id="vShare" class="primary">📧 Envoyer par e-mail</button>
+    <button id="vSave">⬇ Enregistrer</button>
+    <button id="vClose">Fermer</button>
+  </div>
+  <div id="vMsg" role="status"></div>
 </div>
 
 <div id="admin" class="drawer hidden">
@@ -331,6 +354,9 @@
       <label class="c"><input type="checkbox" data-s="showCal"> Afficher les repères de calibration</label>
       <label class="c"><input type="checkbox" data-s="showSkeleton"> Afficher le squelette (IA)</label>
       <label class="c"><input type="checkbox" data-s="showHud"> Afficher les performances</label>
+      <label class="c"><input type="checkbox" data-s="photoOnResult"> Afficher la photo au sommet après chaque saut</label>
+      <label class="c"><input type="checkbox" data-s="allowShare"> Permettre aux élèves d’envoyer ou d’enregistrer la photo</label>
+      <div class="muted">Droit à l’image : vérifiez les autorisations des élèves (et de leurs responsables) avant d’activer l’envoi. Les photos sont effacées à la fin de chaque série.</div>
       <div class="btnrow"><button id="btnFull">Plein écran</button></div>
     </div></details>
 
@@ -371,7 +397,7 @@ const DEF = {
   mpBase: MP_DEFAULT, modelUrl: '',
   bufferSec: 4, bufferWidth: 480, bufferFps: 30,
   showCal: true, showSkeleton: true, showHud: true, distanceNote: '',
-  showWizard: true, detectDelaySec: 5, countUncertain: false, opencvUrl: '', markerDistCm: 20,
+  showWizard: true, detectDelaySec: 5, countUncertain: false, photoOnResult: true, allowShare: true, opencvUrl: '', markerDistCm: 20,
   det: Object.fromEntries(DET_KEYS.map(k => [k, DEFAULTS[k]])),
 };
 const saved = store.get(K.settings, {});
@@ -410,6 +436,7 @@ let shownResult = null;
 let screen = 'home';               // 'home' (accueil élèves) | 'session' (série de sauts)
 let session = null, sessionN = 0;  // série en cours : { n, entries: [...] }
 let prevDetState = null;
+let viewerOpen = false, viewerEntry = null, viewerTimer = null;
 
 /* ================= Utilitaires ================= */
 const fmt = (v, d = 1) => Number.isFinite(v) ? v.toFixed(d).replace('.', ',') : '—';
@@ -614,7 +641,7 @@ async function loadModel() {
 }
 
 function runAI(t) {
-  if (S.mode !== 'ai' || screen !== 'session' || R || edit || wizardOpen || detecting || aiState !== 'ready' || aiBusy) return;
+  if (S.mode !== 'ai' || screen !== 'session' || R || edit || wizardOpen || detecting || viewerOpen || aiState !== 'ready' || aiBusy) return;
   if (t - lastAiT < 1000 / S.aiMaxFps - 3) return;
   aiBusy = true; lastAiT = t;
   const t0 = performance.now();
@@ -630,6 +657,8 @@ function runAI(t) {
   if (inside.length === 1) { poseLog.push({ t, hipY: inside[0].hip.y }); while (poseLog.length && t - poseLog[0].t > 10000) poseLog.shift(); }
   const ev = detector.update({ t, people: lastPoses });
   if (detector.state !== prevDetState) { if (detector.state === STATES.READY) beep(740, 120); prevDetState = detector.state; }
+  // nouvelle position la plus haute pendant le saut : on garde l'image analysée (pleine résolution)
+  if (detector.state === STATES.JUMPING && detector.jump?.apexT === t) grabApex(t);
   if (ev) onDetectorEvent(ev);
   updateUI();
 }
@@ -643,6 +672,7 @@ function onDetectorEvent(ev) {
     const prev = bestOf(session);
     addToSession(entry);
     entry.isRecord = eligible(entry) && (!prev || entryValue(entry) > entryValue(prev));
+    storeApexPhoto(ev, entry);
     beep(entry.isRecord ? 1320 : 880, entry.isRecord ? 260 : 150);
   } else if (ev.type === 'rejected') beep(300, 200);
   const from = (ev.refT ?? ev.takeoffT ?? ev.t) - 700;
@@ -675,6 +705,8 @@ function startSession() {
 }
 function endSession() {
   if (R) closeReview();
+  if (viewerOpen) closeViewer();
+  dropPhotos(session?.entries || []);   // pas de conservation des photos d'une série à l'autre
   session = null; screen = 'home';
   detector.reset(); shownResult = null; lastPoses = []; setLastClip(null); clearBuffer();
   $('#tools').classList.add('hidden');
@@ -686,15 +718,19 @@ function renderSession() {
   setText($('#bestVal'), best ? fmt(entryValue(best)) : '—');
   const items = list.slice().reverse().map(e => {
     const tags = [e === best ? '★ meilleur' : '', e.manual != null ? 'vérifié' : '', e.aiUncertain && e.manual == null ? (S.countUncertain ? '⚠ incertain' : '⚠ non retenu') : ''].filter(Boolean).join(' · ');
-    return `<li class="${e === best ? 'best' : ''}${eligible(e) ? '' : ' off'}"><span>Saut ${e.idx}</span><b>${fmt(entryValue(e))} cm</b><em>${tags}</em></li>`;
+    return `<li class="${e === best ? 'best' : ''}${eligible(e) ? '' : ' off'}"${e.photo ? ` data-id="${e.id}"` : ''}><span>${e.photo ? '📷 ' : ''}Saut ${e.idx}</span><b>${fmt(entryValue(e))} cm</b><em>${tags}</em></li>`;
   }).join('');
   setHTML($('#jumpList'), items || '<li class="empty">Aucun saut pour l’instant</li>');
+  const last = [...list].reverse().find(e => e.photo);
+  const th = $('#lastPhoto');
+  th.classList.toggle('hidden', !last || !S.photoOnResult);
+  if (last && $('#lastPhotoImg').getAttribute('src') !== last.photo.url) { $('#lastPhotoImg').src = last.photo.url; th.dataset.id = last.id; }
 }
 
 /** Consigne géante sur l'image, lisible depuis la zone de saut. */
 function updateBigState() {
   const el = $('#bigState');
-  const show = screen === 'session' && !R && !edit && !detecting && !!vw();
+  const show = screen === 'session' && !R && !edit && !detecting && !viewerOpen && !!vw();
   el.classList.toggle('hidden', !show);
   if (!show) return;
   let txt = '', sub = '', cls = 'WAITING';
@@ -726,6 +762,122 @@ function updateBigState() {
   el.className = 'bigstate s-' + cls;
   setText($('#bigTxt'), txt); setText($('#bigSub'), sub);
 }
+
+/* ================= Photo au sommet ================= */
+const apexCanvas = document.createElement('canvas'), apexCtx = apexCanvas.getContext('2d');
+let apexT = null, resultPhoto = null;
+
+function grabApex(t) {
+  const W = vw(), H = vh();
+  if (apexCanvas.width !== W || apexCanvas.height !== H) { apexCanvas.width = W; apexCanvas.height = H; }
+  apexCtx.drawImage(video, 0, 0, W, H); apexT = t;
+}
+
+async function storeApexPhoto(ev, entry) {
+  if (apexT == null || Math.abs(apexT - ev.apexT) > 1 || !window.createImageBitmap) return;
+  // instantanés pris tout de suite (le canevas sera réécrit au saut suivant)
+  const pBmp = createImageBitmap(apexCanvas);
+  const pBlob = new Promise(r => apexCanvas.toBlob(r, 'image/jpeg', 0.9));
+  const t = apexT, mirror = S.mirror;
+  try {
+    const [bmp, blob] = await Promise.all([pBmp, pBlob]);
+    resultPhoto?.bmp?.close?.(); resultPhoto = { bmp, t };
+    if (!session?.entries.includes(entry)) { return; }
+    entry.apex = { blob, refY: ev.refY, apexY: ev.apexY, mirror };
+    await refreshComposite(entry);
+  } catch (e) { console.warn('[JumpMeasure] photo au sommet', e); }
+  dirty = true; updateUI(true);
+}
+
+/** Image à partager : photo au sommet + lignes départ/sommet + bandeau avec la performance. */
+async function refreshComposite(entry) {
+  if (!entry?.apex) return null;
+  const v = entryValue(entry);
+  if (entry.photo && entry.photo.value === v) return entry.photo;
+  const img = await createImageBitmap(entry.apex.blob);
+  const W = img.width, H = img.height, band = Math.round(H * 0.22);
+  const c = document.createElement('canvas'); c.width = W; c.height = H + band;
+  const g = c.getContext('2d');
+  g.drawImage(img, 0, 0); img.close?.();   // photo dans le bon sens (pas en miroir) : textes lisibles
+  const lw = Math.max(2, W / 400), fs = Math.round(H * 0.035);
+  const line = (y, col, label) => {
+    g.strokeStyle = col; g.lineWidth = lw; g.setLineDash([lw * 5, lw * 3]);
+    g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); g.setLineDash([]);
+    g.fillStyle = col; g.font = `700 ${fs}px system-ui, sans-serif`; g.fillText(label, W * 0.015, y - fs * 0.35);
+  };
+  line(entry.apex.refY, '#38bdf8', 'départ'); line(entry.apex.apexY, '#fb923c', 'sommet');
+  g.fillStyle = '#0b0f14'; g.fillRect(0, H, W, band);
+  g.textBaseline = 'middle';
+  g.fillStyle = '#4ade80'; g.font = `800 ${Math.round(band * 0.6)}px system-ui, sans-serif`;
+  g.fillText(`${fmt(v)} cm`, W * 0.03, H + band / 2);
+  g.textAlign = 'right';
+  g.fillStyle = '#eef3f8'; g.font = `700 ${Math.round(band * 0.2)}px system-ui, sans-serif`;
+  const tag = entry.manual != null ? ' · vérifié' : (entry.aiUncertain ? ' · mesure incertaine' : '');
+  g.fillText(`Saut ${entry.idx ?? ''}${tag}`, W * 0.97, H + band * 0.3);
+  g.fillStyle = '#8fa1b3'; g.font = `500 ${Math.round(band * 0.15)}px system-ui, sans-serif`;
+  g.fillText(entry.time.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }), W * 0.97, H + band * 0.56);
+  g.fillText('JumpMeasure LIVE · mesure indicative', W * 0.97, H + band * 0.78);
+  const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.88));
+  if (entry.photo?.url) URL.revokeObjectURL(entry.photo.url);
+  entry.photo = { blob, url: URL.createObjectURL(blob), value: v, w: c.width, h: c.height };
+  return entry.photo;
+}
+
+function dropPhotos(entries) {
+  for (const e of entries) { if (e.photo?.url) URL.revokeObjectURL(e.photo.url); e.photo = null; e.apex = null; }
+  if (!entries.length || entries === session?.entries) { resultPhoto?.bmp?.close?.(); resultPhoto = null; }
+}
+
+/** Pendant l'affichage du résultat, l'écran montre la photo au sommet au lieu du direct. */
+function showingResultPhoto() {
+  const r = detector.lastResult;
+  return screen === 'session' && S.photoOnResult && !R && !edit && !!resultPhoto && detector.state === STATES.RESULT
+    && r?.type === 'result' && Math.abs(resultPhoto.t - r.apexT) < 1;
+}
+
+const photoName = (e) => `saut-${e.idx ?? e.id}-${fmt(entryValue(e)).replace(',', '-')}cm.jpg`;
+async function openViewer(entry) {
+  if (!entry?.apex) return;
+  const ph = await refreshComposite(entry);
+  if (!ph) return;
+  viewerEntry = entry; viewerOpen = true;
+  $('#viewerImg').src = ph.url;
+  $('#viewerImg').alt = `Photo au sommet du saut ${entry.idx} : ${fmt(entryValue(entry))} cm`;
+  $('#vShare').classList.toggle('hidden', !S.allowShare); $('#vSave').classList.toggle('hidden', !S.allowShare);
+  setText($('#vMsg'), S.allowShare ? 'Envoyer : choisissez « Mail », puis saisissez votre adresse e-mail comme destinataire.' : '');
+  $('#viewer').classList.remove('hidden');
+  clearTimeout(viewerTimer); viewerTimer = setTimeout(closeViewer, 120000); // retour automatique à la série
+  updateUI(true);
+}
+function closeViewer() {
+  clearTimeout(viewerTimer);
+  viewerOpen = false; viewerEntry = null; $('#viewer').classList.add('hidden');
+  detector.reset(); dirty = true; updateUI(true);
+}
+function downloadPhoto(e) {
+  const a = document.createElement('a'); a.href = e.photo.url; a.download = photoName(e);
+  document.body.appendChild(a); a.click(); a.remove();
+}
+$('#vClose').onclick = closeViewer;
+$('#vSave').onclick = () => { if (viewerEntry?.photo) { downloadPhoto(viewerEntry); setText($('#vMsg'), 'Photo enregistrée sur cet appareil.'); } };
+$('#vShare').onclick = async () => {
+  const e = viewerEntry; if (!e?.photo) return;
+  const file = new File([e.photo.blob], photoName(e), { type: 'image/jpeg' });
+  const data = { files: [file], title: 'Mon saut — JumpMeasure LIVE', text: `Mon saut : ${fmt(entryValue(e))} cm (JumpMeasure LIVE, mesure indicative).` };
+  // menu de partage du système (Mail, etc.) : la photo ne passe par aucun serveur de l'application
+  if (navigator.canShare && navigator.canShare(data)) {
+    try { await navigator.share(data); setText($('#vMsg'), 'Envoi préparé dans l’application choisie.'); }
+    catch (err) { if (err.name !== 'AbortError') setText($('#vMsg'), 'Partage impossible : ' + err.message); }
+  } else {
+    downloadPhoto(e);
+    setText($('#vMsg'), 'Ce navigateur ne permet pas d’envoyer une image directement : la photo a été enregistrée, joignez-la à un e-mail.');
+  }
+};
+$('#lastPhoto').onclick = () => openViewer(session?.entries.find(x => String(x.id) === $('#lastPhoto').dataset.id));
+$('#jumpList').addEventListener('click', (ev) => {
+  const li = ev.target.closest('li[data-id]'); if (!li) return;
+  openViewer(session?.entries.find(x => String(x.id) === li.dataset.id));
+});
 
 /* ================= Revue manuelle ================= */
 function nearestIdx(frames, t) {
@@ -813,6 +965,7 @@ function saveManual() {
   let entry = R.clip.entryId ? history.find(h => h.id === R.clip.entryId) : null;
   if (!entry) { entry = { id: ++histN, time: new Date(), ai: null, manual: null, issues: [] }; history.unshift(entry); R.clip.entryId = entry.id; if (session) addToSession(entry); }
   entry.manual = v;
+  if (entry.apex) refreshComposite(entry).then(() => updateUI(true));
   shownResult = { kind: 'manual', entry };
   R.savedValue = v;
   renderHistory(); flash(`Mesure manuelle enregistrée : ${fmt(v)} cm`, true); updateUI(true);
@@ -922,7 +1075,7 @@ function drawOverlays(fit, forLoupe = false) {
   }
   // direct IA
   if (!R && !edit && S.mode === 'ai') {
-    if (S.showSkeleton && !forLoupe) lastPoses.forEach(p => drawSkeleton(p, fit, inZone(p.hip, zoneActive) ? '#38bdf8' : '#64748b'));
+    if (S.showSkeleton && !forLoupe && !showingResultPhoto()) lastPoses.forEach(p => drawSkeleton(p, fit, inZone(p.hip, zoneActive) ? '#38bdf8' : '#64748b'));
     if (detector.ref && [STATES.READY, STATES.JUMPING].includes(detector.state)) hline(detector.ref.hipY, fit, '#38bdf8', 'référence bassin', 2, [8, 6]);
     if (detector.state === STATES.JUMPING && detector.jump) hline(detector.jump.apexY, fit, '#fb923c', '', 2);
     if (detector.state === STATES.RESULT && detector.lastResult?.type === 'result') {
@@ -947,7 +1100,7 @@ function drawOverlays(fit, forLoupe = false) {
 
 function drawLoupe() {
   if (!loupe) return;
-  const src = R ? R.frames[R.idx].bmp : (edit?.photo || video);
+  const src = R ? R.frames[R.idx].bmp : (edit?.photo || (showingResultPhoto() ? resultPhoto.bmp : video));
   const base = currentFit(), M = 3, rad = 75;
   let lx = loupe.view.x, ly = loupe.view.y - 120;
   if (ly - rad < 4) ly = loupe.view.y + 120;
@@ -972,7 +1125,7 @@ function render() {
     return;
   }
   const fit = currentFit();
-  drawSource(R ? R.frames[R.idx].bmp : (edit?.photo || video), fit);
+  drawSource(R ? R.frames[R.idx].bmp : (edit?.photo || (showingResultPhoto() ? resultPhoto.bmp : video)), fit);
   drawOverlays(fit);
   drawLoupe();
 }
@@ -1212,7 +1365,7 @@ $('#btnTools').onclick = () => {
 $('#btnDelLast').onclick = () => {
   const e = session?.entries.pop();
   if (!e) { flash('Aucun saut à supprimer.'); return; }
-  e.deleted = true;
+  e.deleted = true; dropPhotos([e]);
   if (shownResult?.entry === e) shownResult = null;
   flash(`Saut ${e.idx} supprimé.`, true); renderHistory(); updateUI(true);
 };
@@ -1503,7 +1656,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ================= Démarrage ================= */
-window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, detector, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
+window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, detector, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
 resizeCanvas();
 if (S.showWizard) openWizard();
 startCamera();
