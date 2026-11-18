@@ -140,6 +140,12 @@
   .endbtn { background: #1e3a8a; border-color: #3b82f6; }
   .tools { display: grid; gap: 10px; padding: 12px; border: 1px dashed var(--line); border-radius: var(--r); }
   .tools .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* Logo */
+  .logo { max-height: 64px; max-width: 34vw; object-fit: contain; background: rgba(255,255,255,.92); padding: 6px 10px; border-radius: 12px; }
+  .stagelogo { position: absolute; right: 12px; bottom: 30px; z-index: 3; max-height: 16%; max-width: 24%; object-fit: contain;
+    background: rgba(255,255,255,.92); padding: 6px; border-radius: 10px; pointer-events: none; }
+  .logoprev { max-height: 70px; max-width: 220px; object-fit: contain; background: #fff; padding: 6px; border-radius: 8px; }
+  label.filebtn { cursor: pointer; }
   /* Photo au sommet */
   .thumb { display: grid; gap: 6px; padding: 8px; text-align: center; min-height: 0; }
   .thumb img { width: 100%; max-height: 19vh; object-fit: contain; border-radius: 10px; display: block; }
@@ -197,6 +203,7 @@
       <button id="editSave" class="primary">Enregistrer</button>
     </div>
     <div id="hud" class="hud"></div>
+    <img id="stageLogo" class="stagelogo hidden" alt="">
     <div id="bigState" class="bigstate hidden" aria-live="polite"><div id="bigTxt" class="bt"></div><div id="bigSub" class="bs"></div></div>
     <div id="countdown" class="countdown hidden" role="timer" aria-live="assertive">
       <div class="cdnum" id="cdNum">5</div>
@@ -257,6 +264,7 @@
 
 <div id="home" class="home hidden">
   <div class="homebar"><span>JumpMeasure <b>LIVE</b></span>
+    <img id="homeLogo" class="logo hidden" alt="Défi Passeport Santé">
     <button id="homeGear" class="gearbtn" title="Paramètres : maintenir 1 seconde" aria-label="Paramètres administrateur (maintenir 1 s)">⚙</button></div>
   <button id="btnStart" class="startbtn"><span class="big">Commencer<br>les mesures</span><span id="startSub" class="sub"></span></button>
   <div id="homeFlash" role="status"></div>
@@ -354,6 +362,14 @@
       <label class="c"><input type="checkbox" data-s="showCal"> Afficher les repères de calibration</label>
       <label class="c"><input type="checkbox" data-s="showSkeleton"> Afficher le squelette (IA)</label>
       <label class="c"><input type="checkbox" data-s="showHud"> Afficher les performances</label>
+      <div><b>Logo (Défi Passeport Santé)</b></div>
+      <img id="logoPreview" class="logoprev hidden" alt="Logo actuel">
+      <div class="btnrow">
+        <label class="btnlink filebtn">Importer un logo<input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden></label>
+        <button id="btnLogoClear">Retirer le logo importé</button>
+      </div>
+      <div class="muted" id="logoInfo"></div>
+      <label class="c"><input type="checkbox" data-s="showLogo"> Afficher le logo (accueil, écran de mesure et photo)</label>
       <label class="c"><input type="checkbox" data-s="photoOnResult"> Afficher la photo au sommet après chaque saut</label>
       <label class="c"><input type="checkbox" data-s="allowShare"> Permettre aux élèves d’envoyer ou d’enregistrer la photo</label>
       <div class="muted">Droit à l’image : vérifiez les autorisations des élèves (et de leurs responsables) avant d’activer l’envoi. Les photos sont effacées à la fin de chaque série.</div>
@@ -397,7 +413,7 @@ const DEF = {
   mpBase: MP_DEFAULT, modelUrl: '',
   bufferSec: 4, bufferWidth: 480, bufferFps: 30,
   showCal: true, showSkeleton: true, showHud: true, distanceNote: '',
-  showWizard: true, detectDelaySec: 5, countUncertain: false, photoOnResult: true, allowShare: true, opencvUrl: '', markerDistCm: 20,
+  showWizard: true, detectDelaySec: 5, countUncertain: false, photoOnResult: true, allowShare: true, showLogo: true, opencvUrl: '', markerDistCm: 20,
   det: Object.fromEntries(DET_KEYS.map(k => [k, DEFAULTS[k]])),
 };
 const saved = store.get(K.settings, {});
@@ -783,7 +799,7 @@ async function storeApexPhoto(ev, entry) {
     const [bmp, blob] = await Promise.all([pBmp, pBlob]);
     resultPhoto?.bmp?.close?.(); resultPhoto = { bmp, t };
     if (!session?.entries.includes(entry)) { return; }
-    entry.apex = { blob, refY: ev.refY, apexY: ev.apexY, mirror };
+    entry.apex = { blob, refY: ev.refY, apexY: ev.apexY, apexX: ev.apexX ?? vw() / 2, mirror };
     await refreshComposite(entry);
   } catch (e) { console.warn('[JumpMeasure] photo au sommet', e); }
   dirty = true; updateUI(true);
@@ -793,7 +809,8 @@ async function storeApexPhoto(ev, entry) {
 async function refreshComposite(entry) {
   if (!entry?.apex) return null;
   const v = entryValue(entry);
-  if (entry.photo && entry.photo.value === v) return entry.photo;
+  const key = `${v}|${logoVersion}|${S.showLogo}`;
+  if (entry.photo && entry.photo.key === key) return entry.photo;
   const img = await createImageBitmap(entry.apex.blob);
   const W = img.width, H = img.height, band = Math.round(H * 0.22);
   const c = document.createElement('canvas'); c.width = W; c.height = H + band;
@@ -806,6 +823,9 @@ async function refreshComposite(entry) {
     g.fillStyle = col; g.font = `700 ${fs}px system-ui, sans-serif`; g.fillText(label, W * 0.015, y - fs * 0.35);
   };
   line(entry.apex.refY, '#38bdf8', 'départ'); line(entry.apex.apexY, '#fb923c', 'sommet');
+  drawDim(g, { x: entry.apex.apexX, y: entry.apex.refY }, { x: entry.apex.apexX, y: entry.apex.apexY }, `${fmt(v)} cm`,
+    W, Math.round(H * 0.06), Math.max(3, W / 320));
+  const hasLogo = drawLogoOn(g, W, H);
   g.fillStyle = '#0b0f14'; g.fillRect(0, H, W, band);
   g.textBaseline = 'middle';
   g.fillStyle = '#4ade80'; g.font = `800 ${Math.round(band * 0.6)}px system-ui, sans-serif`;
@@ -819,9 +839,79 @@ async function refreshComposite(entry) {
   g.fillText('JumpMeasure LIVE · mesure indicative', W * 0.97, H + band * 0.78);
   const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.88));
   if (entry.photo?.url) URL.revokeObjectURL(entry.photo.url);
-  entry.photo = { blob, url: URL.createObjectURL(blob), value: v, w: c.width, h: c.height };
+  entry.photo = { blob, url: URL.createObjectURL(blob), value: v, key, logo: hasLogo, w: c.width, h: c.height };
   return entry.photo;
 }
+
+function roundRectPath(g, x, y, w, h, r) {
+  g.beginPath();
+  if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h);
+}
+
+/** Flèche verticale entre la ligne de départ (a) et la ligne du sommet (b), avec la hauteur. Coordonnées du canevas cible. */
+function drawDim(g, a, b, label, canvasW, fontPx, lw) {
+  const side = a.x < canvasW / 2 ? 1 : -1;               // côté le plus dégagé
+  const x = a.x + side * fontPx * 2.4, yA = a.y, yB = b.y;
+  const head = Math.max(7, lw * 4), dirA = Math.sign(yA - yB) || 1;
+  g.save();
+  g.strokeStyle = '#ffffff'; g.fillStyle = '#ffffff'; g.lineWidth = lw;
+  g.shadowColor = 'rgba(0,0,0,.65)'; g.shadowBlur = lw * 2;
+  g.beginPath(); g.moveTo(x, yA); g.lineTo(x, yB); g.stroke();
+  const tip = (ty, dir) => { g.beginPath(); g.moveTo(x, ty); g.lineTo(x - head * 0.75, ty - dir * head * 1.4); g.lineTo(x + head * 0.75, ty - dir * head * 1.4); g.closePath(); g.fill(); };
+  tip(yA, dirA); tip(yB, -dirA);
+  g.shadowBlur = 0;
+  g.font = `800 ${fontPx}px system-ui, -apple-system, sans-serif`; g.textBaseline = 'middle'; g.textAlign = 'left';
+  const tw = g.measureText(label).width, pad = fontPx * 0.35, bw = tw + 2 * pad, bh = fontPx * 1.35;
+  let bx = side > 0 ? x + fontPx * 0.45 : x - fontPx * 0.45 - bw;
+  bx = Math.max(4, Math.min(canvasW - bw - 4, bx));
+  const by = (yA + yB) / 2 - bh / 2;
+  g.fillStyle = 'rgba(11, 15, 20, .85)'; roundRectPath(g, bx, by, bw, bh, pad); g.fill();
+  g.fillStyle = '#4ade80'; g.fillText(label, bx + pad, by + bh / 2 + fontPx * 0.04);
+  g.restore();
+}
+
+/** Logo en haut à droite de la photo, sur fond blanc. */
+function drawLogoOn(g, W, H) {
+  if (!logoImg || !S.showLogo || !logoImg.naturalWidth || !logoImg.naturalHeight) return false;
+  const ratio = logoImg.naturalWidth / logoImg.naturalHeight;
+  let lh = H * 0.16, lw = lh * ratio;
+  if (lw > W * 0.3) { lw = W * 0.3; lh = lw / ratio; }
+  const pad = Math.round(W * 0.01), x = W - lw - pad * 3, y = pad * 2;
+  g.save(); g.fillStyle = 'rgba(255,255,255,.93)'; roundRectPath(g, x - pad, y - pad, lw + 2 * pad, lh + 2 * pad, pad * 1.5); g.fill();
+  g.drawImage(logoImg, x, y, lw, lh); g.restore();
+  return true;
+}
+
+// Logo : image importée (stockée dans le navigateur) ou, à défaut, assets/logo.png du dépôt.
+const K_LOGO = 'jml.logo.v1';
+let logoImg = null, logoVersion = 0, logoSrc = '';
+function loadLogo() {
+  let custom = null; try { custom = localStorage.getItem(K_LOGO); } catch { }
+  const img = new Image();
+  img.onload = () => { logoImg = img; logoSrc = custom ? 'importé sur cet appareil' : 'assets/logo.png (dépôt)'; logoVersion++; refreshLogoUI(); };
+  img.onerror = () => { logoImg = null; logoSrc = ''; logoVersion++; refreshLogoUI(); };
+  img.src = custom || './assets/logo.png';
+}
+function refreshLogoUI() {
+  for (const id of ['#homeLogo', '#stageLogo', '#logoPreview']) { const el = $(id); if (logoImg) el.src = logoImg.src; else el.removeAttribute('src'); }
+  $('#logoPreview').classList.toggle('hidden', !logoImg);
+  setText($('#logoInfo'), logoImg ? `Logo : ${logoSrc}.` : 'Aucun logo : importez une image (PNG, JPEG, SVG) ou ajoutez assets/logo.png au dépôt.');
+  updateUI(true);
+}
+$('#logoFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const url = URL.createObjectURL(f), img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('image illisible')); img.src = url; });
+    const w0 = img.naturalWidth || 800, h0 = img.naturalHeight || 800, k = Math.min(1, 800 / Math.max(w0, h0));
+    const c = document.createElement('canvas'); c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+    localStorage.setItem(K_LOGO, c.toDataURL('image/png'));
+    loadLogo(); flash('Logo importé.', true);
+  } catch (err) { flash('Logo non importé : ' + (err.message || err)); }
+  e.target.value = '';
+});
+$('#btnLogoClear').onclick = () => { try { localStorage.removeItem(K_LOGO); } catch { } loadLogo(); };
 
 function dropPhotos(entries) {
   for (const e of entries) { if (e.photo?.url) URL.revokeObjectURL(e.photo.url); e.photo = null; e.apex = null; }
@@ -1080,6 +1170,10 @@ function drawOverlays(fit, forLoupe = false) {
     if (detector.state === STATES.JUMPING && detector.jump) hline(detector.jump.apexY, fit, '#fb923c', '', 2);
     if (detector.state === STATES.RESULT && detector.lastResult?.type === 'result') {
       const r = detector.lastResult; hline(r.refY, fit, '#38bdf8', 'départ', 2); hline(r.apexY, fit, '#fb923c', 'sommet', 2);
+      if (!forLoupe && r.apexX != null) {
+        drawDim(ctx, P({ x: r.apexX, y: r.refY }, fit), P({ x: r.apexX, y: r.apexY }, fit), `${fmt(r.detenteCm)} cm`,
+          cssW, Math.round(Math.min(52, Math.max(20, cssH * 0.065))), 3);
+      }
     }
   }
   // revue manuelle
@@ -1336,6 +1430,9 @@ function updateUI(force = false) {
     $('#btnStart').disabled = !ok; setText($('#startSub'), sub);
     setText($('#homeFlash'), flashMsg && now < flashUntil ? flashMsg.txt : '');
   }
+  const showLogo = !!logoImg && S.showLogo;
+  $('#homeLogo').classList.toggle('hidden', !showLogo);
+  $('#stageLogo').classList.toggle('hidden', !(showLogo && screen === 'session' && !R && !edit && !detecting));
   updateBigState();
   renderSession();
   if (!$('#admin').classList.contains('hidden')) updateAdmin();
@@ -1656,8 +1753,9 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ================= Démarrage ================= */
-window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, detector, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
+window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, detector, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, get logoImg() { return logoImg; }, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
 resizeCanvas();
+loadLogo();
 if (S.showWizard) openWizard();
 startCamera();
 if (S.mode === 'ai') loadModel();

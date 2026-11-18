@@ -169,6 +169,7 @@ for (const h of [15, 30, 45]) {
     close(ev[0].detenteCm, h + 8, 1.5, 'détente');
     close(ev[0].flightCm, h, 6, 'temps de vol (indicatif)');
     assert.equal(ev[0].uncertain, false, ev[0].issues.join());
+    close(ev[0].apexX, 640, 1, 'position horizontale du bassin au sommet');
   });
 }
 

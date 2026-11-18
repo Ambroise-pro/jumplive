@@ -1,0 +1,3 @@
+Déposez ici le logo du Défi Passeport Santé sous le nom logo.png (fond transparent conseillé).
+Il sera affiché sur l’accueil, l’écran de mesure et les photos.
+Un logo importé depuis Paramètres → Affichage est prioritaire sur ce fichier.

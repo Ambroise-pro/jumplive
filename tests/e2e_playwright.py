@@ -133,6 +133,14 @@ try:
         page.reload(); wait('document.querySelector("#video").videoWidth > 0')
         ev('() => { window.__MOCK_CMPX = JML.cal.cmPerPx; window.__MOCK_FLIGHTS = [30, 40, 25]; window.__MOCK_PERIOD = 6500; }')
         wait('JML.aiState === "ready"')
+        # logo de TEST (image générée) importé depuis les paramètres
+        from PIL import Image, ImageDraw
+        lg = Image.new('RGBA', (400, 160), (255, 255, 255, 0)); d = ImageDraw.Draw(lg)
+        d.ellipse([10, 10, 150, 150], fill=(220, 38, 38, 255)); d.rectangle([170, 50, 390, 110], fill=(37, 99, 235, 255))
+        lg.save(f'{OUT}/logo_test.png')
+        page.set_input_files('#logoFile', f'{OUT}/logo_test.png')
+        wait('!!JML.logoImg', 5000)
+        check('logo importé et affiché à l’accueil', not hidden('#homeLogo') and ev('localStorage.getItem("jml.logo.v1") || ""').startswith('data:image/png'))
         page.click('#btnStart')
         seen, texts, shots = set(), set(), set()
         t0 = time.time()
@@ -158,6 +166,7 @@ try:
         # 6b. Photo au sommet : affichée pendant le résultat, vignette, visionneuse, envoi
         check('photo au sommet affichée à l’écran pendant le résultat', 'PHOTO' in seen)
         ph = ev('JML.session.entries.map(e => e.photo && { w: e.photo.w, h: e.photo.h, kb: Math.round(e.photo.blob.size / 1024) })')
+        check('logo sur l’écran de mesure et sur les photos', not hidden('#stageLogo') and ev('JML.session.entries.every(e => e.photo && e.photo.logo)'))
         check('photo au sommet enregistrée pour chaque saut', all(ph) and ph[0]['w'] == W and ph[0]['h'] == H + round(H * 0.22), str(ph))
         apex_ok = ev('JML.session.entries.every(e => e.apex && Math.abs(e.apex.apexY - (e.apex.refY - e.ai / JML.cal.cmPerPx)) < 0.01)')
         check('lignes départ/sommet de la photo = valeurs mesurées', apex_ok)

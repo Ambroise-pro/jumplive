@@ -249,7 +249,7 @@ export class JumpDetector {
         const upL = (this.ref.fL - fL) * cmPx, upR = (this.ref.fR - fR) * cmPx;
         if (hipUp >= P.takeoffHipCm && upL >= P.takeoffFootCm && upR >= P.takeoffFootCm) {
           this.jump = {
-            takeoffT: t, apexY: person.hip.y, apexT: t, samples: 1, visSum: person.conf, lostFrames: 0,
+            takeoffT: t, apexY: person.hip.y, apexX: person.hip.x, apexT: t, samples: 1, visSum: person.conf, lostFrames: 0,
             startFrameT: this.ref.t1, minVis: person.conf,
           };
           this._set(STATES.JUMPING, t, 'Saut en cours…');
@@ -275,7 +275,7 @@ export class JumpDetector {
         }
         if (!person.inFrame) return this._reject(t, 'Sortie du cadre pendant le saut');
         J.samples++; J.visSum += person.conf; J.minVis = Math.min(J.minVis, person.conf);
-        if (person.hip.y < J.apexY) { J.apexY = person.hip.y; J.apexT = t; }
+        if (person.hip.y < J.apexY) { J.apexY = person.hip.y; J.apexX = person.hip.x; J.apexT = t; }
         if (t - J.takeoffT > P.maxFlightMs) return this._reject(t, 'Durée de vol invraisemblable');
         const upL = (this.ref.fL - fL) * cmPx, upR = (this.ref.fR - fR) * cmPx;
         if (t > J.apexT && upL <= P.landingFootCm && upR <= P.landingFootCm) {
@@ -293,7 +293,7 @@ export class JumpDetector {
           if (this.ref.sdCm > P.stableMaxStdCm * 0.8) issues.push('référence peu stable');
           const res = {
             type: 'result', detenteCm: d, flightMs, flightCm: flightHeightCm(flightMs),
-            refY: this.ref.hipY, apexY: J.apexY, refT: this.ref.t1, takeoffT: J.takeoffT, apexT: J.apexT, landT: t,
+            refY: this.ref.hipY, apexY: J.apexY, apexX: J.apexX, refT: this.ref.t1, takeoffT: J.takeoffT, apexT: J.apexT, landT: t,
             avgVis, aiFps, uncertain: issues.length > 0, issues,
           };
           this.lastResult = res;
