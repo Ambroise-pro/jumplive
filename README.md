@@ -156,8 +156,8 @@ Puis, dans *Paramètres → Analyse IA* : Base MediaPipe = `./vendor/mediapipe`,
 ```bash
 node --test tests/*.test.mjs                 # 70 tests : conversions, calibrations, détecteurs (détente et longueur), détection de feuille
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
-python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications
-python3 tests/e2e_long.py /chemin/chrome          # 14 vérifications : saut en longueur (faux modèle, vue de profil simulée) : les 3 boutons via fausse caméra
+python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications : les 3 boutons via fausse caméra
+python3 tests/e2e_long.py /chemin/chrome          # 14 vérifications : saut en longueur (faux modèle, vue de profil simulée)
 pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 48 vérifications de bout en bout
 ```
 
