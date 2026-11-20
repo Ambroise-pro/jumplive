@@ -65,6 +65,9 @@ Une limite commune aux trois : la détection ne vérifie **pas** que la feuille 
 - **Calibration** sur l'**image en direct** : *Paramètres → Calibration → Calibrer la longueur*, ou l'écran Calibration au démarrage quand le mode longueur est choisi. Les 3 repères apparaissent sur le direct : aligne-les sur le décamètre, d'abord le zéro (ligne d'appel, en bleu), puis deux graduations, par défaut **1 m et 2 m**. Ces distances se règlent dans la même barre, par exemple 1 m et 3 m pour couvrir toute la zone de réception. Une loupe aide au placement, et **⏸ Figer l'image** gèle le direct si quelqu'un passe devant (**▶ Revenir au direct** ensuite). Trois repères permettent de **corriger la perspective** si la tablette n'est pas parfaitement perpendiculaire : un avertissement s'affiche alors.
 - À l'écran, une **règle au sol** (ligne d'appel, graduations tous les 50 cm) permet de vérifier la calibration d'un coup d'œil.
 
+### Changer de caméra
+Le bouton **🔄 Changer de caméra** (écran Calibration, barre de calibration de la longueur sur le direct, *Paramètres → Caméra*) passe d'une caméra à l'autre ; la caméra active est affichée. Chaque calibration reste liée à la caméra avec laquelle elle a été faite : sur une autre caméra, elle est signalée invalide. Si les deux modes ont été calibrés avec des caméras différentes (par exemple avant pour la détente, arrière pour la longueur), **changer de mode à l'accueil rebascule automatiquement sur la bonne caméra**.
+
 ### Saut en longueur : mesure
 - Consignes : « Placez-vous derrière la ligne d'appel » → « Ne bougez plus… » → **« VOUS POUVEZ SAUTER ! »**. « Reculez » s'affiche si les pointes dépassent la ligne, « Avancez » si l'élève est à plus de 60 cm derrière.
 - **Décollage** : les deux pieds quittent le sol. **Réception** : les deux pieds reviennent au sol. Pendant 0,3 s après le contact, l'application retient le **talon le plus proche de la ligne d'appel**.
@@ -158,6 +161,7 @@ node --test tests/*.test.mjs                 # 70 tests : conversions, calibrati
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
 python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications : les 3 boutons via fausse caméra
 python3 tests/e2e_long.py /chemin/chrome          # 18 vérifications : saut en longueur (faux modèle, vue de profil simulée)
+python3 tests/e2e_camera.py /chemin/chrome        # 9 vérifications : changement de caméra (2 caméras simulées)
 pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 48 vérifications de bout en bout
 ```
 

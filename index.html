@@ -68,6 +68,7 @@
     align-items: center; padding: 12px; border-radius: var(--r); background: rgba(19, 26, 34, .94); border: 1px solid var(--orange); }
   .editbar .txt { flex: 1 1 260px; font-weight: 600; }
   .editbar .txt small { display: block; color: var(--mute); font-weight: 400; }
+  .camrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .editlong { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-weight: 600; }
   .editlong input { width: 84px; min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); padding: 0 8px; }
 
@@ -214,6 +215,7 @@
         <label>1er repère <input type="number" step="1" min="20" max="500" data-s="longD1"> cm</label>
         <label>2e repère <input type="number" step="1" min="40" max="600" data-s="longD2"> cm</label>
       </span>
+      <button id="editCam" class="camswitch hidden">🔄 Caméra</button>
       <button id="editFreeze" class="hidden">⏸ Figer l’image</button>
       <button id="editRetake" class="hidden">📸 Reprendre la photo</button>
       <button id="editCancel">Annuler</button>
@@ -318,6 +320,7 @@
   <label class="f">Délai pour placer la feuille (s)<input type="number" step="1" min="0" max="30" data-s="detectDelaySec"></label>
   <label class="f wz-vertical">Distance mesurée entre les centres des carrés (cm)<input type="number" step="0.1" min="5" max="28" data-s="markerDistCm"></label>
   <label class="c"><input type="checkbox" data-s="showWizard"> Afficher cet écran au démarrage</label>
+  <div class="camrow"><button class="camswitch">🔄 Changer de caméra</button><span class="camname muted"></span></div>
   <div class="btnrow"><button id="wzContinue" class="primary">Continuer</button></div>
 </div>
 
@@ -365,7 +368,7 @@
       <label class="f">Caméra par défaut<select data-s="facing"><option value="user">Avant (écran face au sauteur)</option><option value="environment">Arrière</option></select></label>
       <label class="c"><input type="checkbox" data-s="mirror"> Affichage miroir (n’affecte pas la mesure)</label>
       <label class="f">Cadrage à l’écran<select data-s="fitMode"><option value="contain">Image entière</option><option value="cover">Remplir (image recadrée)</option></select></label>
-      <div class="btnrow"><button id="btnCamApply" class="primary">Appliquer / redémarrer la caméra</button></div>
+      <div class="btnrow"><button id="btnCamApply" class="primary">Appliquer / redémarrer la caméra</button><button class="camswitch">🔄 Caméra suivante</button></div>
       <div class="muted" id="camInfo"></div>
     </div></details>
 
@@ -587,15 +590,35 @@ async function startCamera() {
   requestWakeLock();
 }
 
+let cameras = []; // caméras disponibles (après autorisation, les noms sont connus)
 async function listCameras() {
   try {
     const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    cameras = devs.map((d, i) => ({ id: d.deviceId, label: d.label || 'Caméra ' + (i + 1) }));
     const sel = $('#selCam');
     sel.innerHTML = '<option value="">Automatique</option>' + devs.map((d, i) =>
       `<option value="${d.deviceId}">${(d.label || 'Caméra ' + (i + 1)).replace(/</g, '&lt;')}</option>`).join('');
     sel.value = devs.some(d => d.deviceId === S.deviceId) ? S.deviceId : '';
   } catch { }
 }
+
+/** Passe à la caméra suivante (ou à une caméra précise). La calibration de chaque mode reste liée à sa caméra. */
+async function switchCamera(targetId = null) {
+  if (!cameras.length) await listCameras();
+  if (!targetId && cameras.length < 2) { flash('Une seule caméra détectée sur cet appareil.'); return; }
+  const i = cameras.findIndex(c => c.id === curDeviceId);
+  const next = targetId ? cameras.find(c => c.id === targetId) : cameras[(i + 1) % cameras.length];
+  if (!next || next.id === curDeviceId) return;
+  if (R) closeReview();
+  const frozen = edit?.photo; if (frozen && edit.kind === 'calLong') { frozen.close?.(); edit.photo = null; setText($('#editFreeze'), '⏸ Figer l’image'); }
+  S.deviceId = next.id; S.deviceLabel = next.label; saveS();
+  flash(`Caméra : ${next.label}`, true);
+  await startCamera();
+  if (edit) updateEditText();
+  updateUI(true);
+}
+const camName = () => (cameras.find(c => c.id === curDeviceId)?.label || curLabel || 'caméra inconnue') + (cameras.length > 1 ? ` (${cameras.findIndex(c => c.id === curDeviceId) + 1}/${cameras.length})` : '');
+document.querySelectorAll('.camswitch').forEach(b => b.addEventListener('click', () => switchCamera()));
 
 video.addEventListener('resize', onVideoDims);
 
@@ -1634,6 +1657,7 @@ function startEdit(kind, det = null, fromWizard = false, opts = {}) {
   $('#editRetake').classList.toggle('hidden', !(edit.kind === 'cal' && edit.photo));
   $('#editLong').classList.toggle('hidden', edit.kind !== 'calLong');
   $('#editFreeze').classList.toggle('hidden', edit.kind !== 'calLong');
+  $('#editCam').classList.toggle('hidden', edit.kind !== 'calLong');
   setText($('#editFreeze'), '⏸ Figer l’image');
   if (edit.kind === 'calLong') syncInputs();
   $('#editbar').classList.remove('hidden'); updateEditText(); dirty = true; updateUI(true);
@@ -1645,7 +1669,7 @@ function updateEditText() {
     const st = validateLongCalibration(c, null), ax = longAxis(c);
     const info = st.valid ? `1 m ≈ ${fmt(100 / ax.cmPerPxAt(edit.p0), 0)} px près de la ligne` : st.reasons.join(' · ');
     setHTML($('#editTxt'), `${edit.photo ? 'Image figée' : 'Image en direct'} : alignez les 3 repères sur le <b>décamètre au sol</b> : <b>0 = ligne d’appel</b> (bleu), puis ${fmt(S.longD1 / 100, 2)} m et ${fmt(S.longD2 / 100, 2)} m.
-      <small>${info}${st.warnings.length ? '<br>⚠ ' + st.warnings.join(' · ') : ''}. Le saut se fait vers le 2e repère. Une loupe apparaît pendant le déplacement.</small>`);
+      <small>${info}${st.warnings.length ? '<br>⚠ ' + st.warnings.join(' · ') : ''}. Le saut se fait vers le 2e repère. Une loupe apparaît pendant le déplacement. Caméra : ${camName().replace(/</g, '&lt;')}.</small>`);
     return;
   }
   if (edit.kind === 'cal') {
@@ -1799,6 +1823,7 @@ function updateUI(force = false) {
   updateBigState();
   renderSession();
   if (!$('#admin').classList.contains('hidden')) updateAdmin();
+  document.querySelectorAll('.camname').forEach(el => setText(el, vw() ? 'Caméra active : ' + camName() : ''));
   updateWizard();
 }
 setInterval(() => updateUI(true), 500);
@@ -1820,6 +1845,8 @@ $('#btnStart').onclick = startSession;
 function setMeasureMode(m) {
   if (m !== 'vertical' && m !== 'long') return;
   S.measureMode = m; saveS();
+  const want = (m === 'long' ? calLong : cal)?.deviceId;
+  if (want && want !== curDeviceId && cameras.some(c => c.id === want)) switchCamera(want);
   detector = m === 'long' ? detectorL : detectorV;
   detector.reset(); prevDetState = null; shownResult = null; setLastClip(null);
   revalidate(); dirty = true; updateUI(true);
@@ -2144,7 +2171,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ================= Démarrage ================= */
-window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, get detector() { return detector; }, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get calLong() { return calLong; }, get calLongStatus() { return calLongStatus; }, setMeasureMode, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, logos: LOGOS, PhotoDB, get galleryItems() { return galleryItems; }, renderGallery, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
+window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, get detector() { return detector; }, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get calLong() { return calLong; }, get calLongStatus() { return calLongStatus; }, setMeasureMode, switchCamera, get cameras() { return cameras; }, get curDeviceId() { return curDeviceId; }, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, logos: LOGOS, PhotoDB, get galleryItems() { return galleryItems; }, renderGallery, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
 resizeCanvas();
 loadLogos();
 if (S.showWizard) openWizard();
