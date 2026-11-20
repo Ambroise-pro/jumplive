@@ -69,10 +69,11 @@ Une limite commune aux trois : la détection ne vérifie **pas** que la feuille 
 Le bouton **🔄 Changer de caméra** (écran Calibration, barre de calibration de la longueur sur le direct, *Paramètres → Caméra*) passe d'une caméra à l'autre ; la caméra active est affichée. Chaque calibration reste liée à la caméra avec laquelle elle a été faite : sur une autre caméra, elle est signalée invalide. Si les deux modes ont été calibrés avec des caméras différentes (par exemple avant pour la détente, arrière pour la longueur), **changer de mode à l'accueil rebascule automatiquement sur la bonne caméra**.
 
 ### Saut en longueur : mesure
+- **Seuls les pieds comptent** : un pied bien détecté suffit (ils sont joints). Les hanches, le haut du corps ou la tête peuvent être hors champ ; la caméra peut donc être placée plus bas et plus près, pour bien voir les pieds sur toute la zone. La zone de saut et la règle « une seule personne » se basent sur la position des pieds.
 - Consignes : « Placez-vous derrière la ligne d'appel » → « Ne bougez plus… » → **« VOUS POUVEZ SAUTER ! »**. « Reculez » s'affiche si les pointes dépassent la ligne, « Avancez » si l'élève est à plus de 60 cm derrière.
 - **Décollage** : les deux pieds quittent le sol. **Réception** : les deux pieds reviennent au sol. Pendant 0,3 s après le contact, l'application retient le **talon le plus proche de la ligne d'appel**.
 - **Résultat** = distance de la ligne d'appel à ce talon (**règle officielle**), affichée en mètres. La distance depuis les pointes de pieds au départ est aussi indiquée et exportée.
-- **Mesure incertaine** si une **main se pose derrière les talons** (chute en arrière), si le suivi est peu fiable ou si l'IA analyse trop peu d'images par seconde. Saut écarté si le pied mord la ligne, en cas de perte de suivi, de sortie du cadre ou de plusieurs personnes.
+- **Mesure incertaine** si une **main se pose derrière les talons** (chute en arrière), si le suivi est peu fiable ou si l'IA analyse trop peu d'images par seconde. Saut écarté si le pied mord la ligne, si les pieds ne sont plus suivis ou sortent de l'image, ou s'il y a plusieurs personnes.
 - **Photo de la réception** : ligne d'appel, ligne de réception et flèche avec la distance.
 - **Vérification** (outils professeur) : choisir l'image de réception, glisser la ligne verticale sur le talon (◀ ▶ pour ajuster au pixel près).
 

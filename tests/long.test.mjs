@@ -42,7 +42,7 @@ test('validation longueur', () => {
 });
 
 /* ---------- poses simulées (profil, élève tourné vers +x) ---------- */
-function makePose(ax, { toeCm, liftCm = 0, hipUpCm = 0, handBehindCm = null, xShiftPx = 0, vis = 0.95 }) {
+function makePose(ax, { toeCm, liftCm = 0, hipUpCm = 0, handBehindCm = null, xShiftPx = 0, vis = 0.95, upperHidden = false }) {
   const P = (X) => ax.fromCm(X), k = 1 / ax.cmPerPxAt(P(Math.max(0, toeCm)));   // px par cm local
   const toe = P(toeCm), heel = P(toeCm - 24), lift = liftCm * k;
   const hip = { x: (toe.x + heel.x) / 2 + xShiftPx, y: GROUND - 95 * k - hipUpCm * k };
@@ -51,6 +51,11 @@ function makePose(ax, { toeCm, liftCm = 0, hipUpCm = 0, handBehindCm = null, xSh
   set(LM.L_HIP, hip.x - 4 - xShiftPx, hip.y); set(LM.R_HIP, hip.x + 4 - xShiftPx, hip.y);
   for (const [he, to, an, dx] of [[LM.L_HEEL, LM.L_TOE, LM.L_ANKLE, -2], [LM.R_HEEL, LM.R_TOE, LM.R_ANKLE, 2]]) {
     set(he, heel.x + dx, heel.y - lift); set(to, toe.x + dx, toe.y - lift); set(an, heel.x + 3 * k + dx, heel.y - lift - 8 * k);
+  }
+  if (upperHidden) { // caméra basse : hanches et haut du corps hors champ / mal détectés
+    for (const i of [LM.L_HIP, LM.R_HIP, LM.L_SHOULDER, LM.R_SHOULDER]) a[i] = { x: hip.x / W, y: -0.05, visibility: 0.15 };
+    a[LM.L_WRIST] = a[LM.R_WRIST] = { x: hip.x / W, y: -0.05, visibility: 0.1 };
+    return extractPose(a, W, H);
   }
   if (handBehindCm != null) { const hp = P(handBehindCm); set(LM.L_WRIST, hp.x, hp.y - 2 * k); set(LM.R_WRIST, hp.x, hp.y - 2 * k); }
   else { set(LM.L_WRIST, hip.x + 10, hip.y - 40); set(LM.R_WRIST, hip.x + 10, hip.y - 40); }
@@ -93,6 +98,22 @@ for (const [name, cal] of [['linéaire', CAL_LIN], ['perspective', CAL_PERSP]]) 
   });
 }
 
+test('seuls les pieds sont visibles (haut du corps hors champ) : saut mesuré', () => {
+  const d = new LongJumpDetector();
+  const evs = run(d, CAL_LIN, 5000, (t, ax) => [makePose(ax, { ...jumpAt(ax, t), upperHidden: true })]);
+  assert.equal(evs.length, 1, JSON.stringify(evs)); assert.equal(evs[0].type, 'result', evs[0].reason);
+  close(evs[0].valueCm, 179, 1.5);
+});
+test('un seul pied bien détecté suffit (pieds joints)', () => {
+  const d = new LongJumpDetector();
+  const evs = run(d, CAL_LIN, 5000, (t, ax) => { const p = makePose(ax, jumpAt(ax, t)); p.footR.v = 0.1; return [p]; });
+  assert.equal(evs[0]?.type, 'result', JSON.stringify(evs)); close(evs[0].valueCm, 179, 1.5);
+});
+test('pieds non détectés : en attente, message sur les pieds', () => {
+  const d = new LongJumpDetector();
+  run(d, CAL_LIN, 2000, (t, ax) => { const p = makePose(ax, { toeCm: -5 }); p.footL.v = p.footR.v = 0.1; return [p]; });
+  assert.equal(d.state, STATES.WAITING);
+});
 test('pieds au-delà de la ligne : jamais prêt', () => {
   const d = new LongJumpDetector();
   const evs = run(d, CAL_LIN, 3000, (t, ax) => [makePose(ax, { toeCm: 3 })]);
@@ -112,7 +133,7 @@ test('perte de suivi pendant le vol → écartée', () => {
 test('réception hors du cadre → écartée', () => {
   const d = new LongJumpDetector();
   const evs = run(d, CAL_LIN, 5000, (t, ax) => [makePose(ax, jumpAt(ax, t, { land: 380 }))]);
-  assert.equal(evs[0].type, 'rejected'); assert.match(evs[0].reason, /cadre/);
+  assert.equal(evs[0].type, 'rejected'); assert.match(evs[0].reason, /cadre/);   // pieds sortis de l'image
 });
 test('main posée derrière les talons → mesure incertaine', () => {
   const d = new LongJumpDetector();

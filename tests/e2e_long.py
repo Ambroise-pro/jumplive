@@ -62,7 +62,7 @@ try:
         check('calibration longueur enregistrée et valide', ok and ev('JML.calLongStatus.valid'), str(ev('JML.calLongStatus.reasons')))
         # repères réellement posés (positions natives après glisser) → le faux saut s'appuie dessus
         kk = (cl['p2']['x'] - cl['p0']['x']) / 200
-        ev('c => { window.__MOCK_LONG = c; }', {'p0x': cl['p0']['x'], 'gy': cl['p0']['y'], 'k': kk, 'lands': [180, 210], 'period': 7000})
+        ev('c => { window.__MOCK_LONG = c; }', {'p0x': cl['p0']['x'], 'gy': cl['p0']['y'], 'k': kk, 'lands': [180, 210], 'period': 7000, 'upperHidden': True})  # caméra basse : seuls les pieds sont vus
         page.wait_for_function('JML.aiState === "ready"', timeout=15000)
         check('accueil débloqué après calibration', not ev('document.querySelector("#btnStart").disabled'))
 
@@ -78,7 +78,7 @@ try:
             page.wait_for_timeout(80)
         vals = ev('JML.session.entries.map(e => e.ai)')
         check('consignes longueur affichées', any('derrière la ligne' in t for t in texts) and any('VOUS POUVEZ SAUTER' in t for t in texts), ' | '.join(sorted(texts))[:200])
-        check('2 sauts mesurés depuis la ligne d’appel (≈ 1,79 m et 2,09 m)', len(vals) == 2 and abs(vals[0] - 179) < 2 and abs(vals[1] - 209) < 2, ', '.join(f'{v:.1f}' for v in vals))
+        check('2 sauts mesurés avec seulement les pieds visibles (≈ 1,79 m et 2,09 m)', len(vals) == 2 and abs(vals[0] - 179) < 2 and abs(vals[1] - 209) < 2, ', '.join(f'{v:.1f}' for v in vals))
         check('affichage en mètres', page.inner_text('#resultUnit') == 'm' and page.inner_text('#bestVal') == f"{max(vals)/100:.2f}".replace('.', ','), page.inner_text('#bestVal'))
         fp = ev('JML.session.entries[0].fromToesCm')
         check('distance depuis les pointes aussi calculée', fp and abs(fp - 184) < 2.5, f'{fp:.1f}' if fp else '')

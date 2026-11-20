@@ -122,8 +122,9 @@ export function extractPose(lms, W, H, opt = {}) {
   const hip = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2, v: Math.min(lh.v, rh.v) };
   const foot = (heelI, toeI, ankleI) => {
     const he = g(heelI), to = g(toeI), an = g(ankleI);
+    const inF = (q) => q.x >= 0 && q.x <= W && q.y >= 0 && q.y <= H * 0.995;
     return { y: Math.max(he.y, to.y), x: (he.x + to.x) / 2, v: Math.min(he.v, to.v, an.v), ankleY: an.y,
-      heel: { x: he.x, y: he.y }, toe: { x: to.x, y: to.y } };
+      heel: { x: he.x, y: he.y }, toe: { x: to.x, y: to.y }, inFrame: inF(he) && inF(to) };
   };
   const footL = foot(LM.L_HEEL, LM.L_TOE, LM.L_ANKLE), footR = foot(LM.R_HEEL, LM.R_TOE, LM.R_ANKLE);
   const pts = [lh, rh, footL, footR];
@@ -387,7 +388,8 @@ export const LONG_DEFAULTS = {
   handCheckMs: 900,     // surveillance d'une main posée en arrière
   maxLostMs: 200, resultHoldMs: 3000,
   minDistCm: 30, maxDistCm: 400,
-  minAiFps: 12, minQualityVis: 0.7,
+  minAiFps: 12, minQualityVis: 0.6,
+  minFootVis: 0.3,      // seuls les pieds comptent en longueur (le haut du corps peut être hors champ)
 };
 
 export class LongJumpDetector {
@@ -411,10 +413,13 @@ export class LongJumpDetector {
     this.lastResult = ev; this.jump = null; this._set(STATES.RESULT, t, 'Mesure écartée : ' + reason);
     return ev;
   }
-  /** Mesures utiles d'une pose : pointe la plus avancée, talon le plus en arrière, élévation des pieds (cm). */
+  /** Pieds suffisamment visibles (un seul suffit : les pieds sont joints). */
+  _feet(person) { return [person.footL, person.footR].filter(f => f && f.v >= this.p.minFootVis && Number.isFinite(f.y) && Number.isFinite(f.x)); }
+  _anchor(feet) { return { x: feet.reduce((a, f) => a + f.x, 0) / feet.length, y: feet.reduce((a, f) => a + f.y, 0) / feet.length }; }
+  /** Mesures utiles : pointe la plus avancée, talon le plus en arrière, élévation des pieds (cm). */
   _measure(person) {
     const A = this.axis, toCm = A.toCm;
-    const feet = [person.footL, person.footR];
+    const feet = this._feet(person);
     const toeF = Math.max(...feet.map(f => toCm(f.toe)));
     const heelB = Math.min(...feet.map(f => Math.min(toCm(f.heel), toCm(f.toe))));
     const lift = feet.map(f => (A.groundY(f.x) - f.y) * A.cmPerPxAt({ x: f.x, y: A.groundY(f.x) }));
@@ -428,11 +433,15 @@ export class LongJumpDetector {
       this._toWaiting(t);
     }
     if (!this.axis) { this._toWaiting(t, 'Calibration longueur manquante ou invalide'); return null; }
-    const inside = frame.people.filter(p => p.hipOk && inZone(p.hip, this.zone));
+    // seuls les pieds comptent : la personne est retenue si au moins un pied est bien vu, dans la zone
+    const inside = frame.people.filter(p => { const f = this._feet(p); return f.length > 0 && inZone(this._anchor(f), this.zone); });
     const multiple = inside.length > 1, person = inside.length === 1 ? inside[0] : null;
     if (person) this.lastSeen = t;
     const lost = !person && (t - this.lastSeen > P.maxLostMs);
-    const m = person && person.feetOk ? this._measure(person) : null;
+    const feet = person ? this._feet(person) : [];
+    const feetIn = feet.length > 0 && feet.every(f => f.inFrame !== false);
+    const footVis = feet.length ? feet.reduce((a, f) => a + f.v, 0) / feet.length : 0;
+    const m = feet.length ? this._measure(person) : null;
     const onGround = m && m.lift.every(l => l < P.landingFootCm);
 
     switch (this.state) {
@@ -441,13 +450,13 @@ export class LongJumpDetector {
         if (multiple) { this._toWaiting(t, 'Une seule personne dans la zone'); return null; }
         if (lost) { this._toWaiting(t); return null; }
         if (!person) return null;
-        if (!person.inFrame) { this._toWaiting(t, 'Tout le corps doit être visible, pieds compris'); return null; }
+        if (!feetIn) { this._toWaiting(t, 'Pieds hors de l’image : la caméra doit voir les pieds'); return null; }
         if (!m) { this._toWaiting(t, 'Pieds mal visibles : ajustez la caméra ou l’éclairage'); return null; }
         if (m.toeF > P.foulCm) { this._toWaiting(t, 'Reculez : les pieds doivent être derrière la ligne'); return null; }
         if (m.toeF < -P.maxBehindCm) { this._toWaiting(t, 'Avancez jusqu’à la ligne d’appel'); return null; }
         if (!onGround) { this.window = []; this._set(STATES.STABILIZING, t, 'Pieds joints au sol, ne bougez plus…'); return null; }
         if (this.state === STATES.WAITING) { this.window = []; this._set(STATES.STABILIZING, t, 'Ne bougez plus…'); }
-        this.window.push({ t, toeF: m.toeF, hipY: person.hip.y });
+        this.window.push({ t, toeF: m.toeF });
         while (this.window.length && t - this.window[0].t > P.stableWindowMs) this.window.shift();
         const span = this.window.length ? t - this.window[0].t : 0;
         if (span >= P.stableWindowMs * 0.85 && this.window.length >= 5 && std(this.window.map(w => w.toeF)) <= P.stableMaxStdCm) {
@@ -461,7 +470,7 @@ export class LongJumpDetector {
         if (lost) { this._toWaiting(t); return null; }
         if (!person || !m) return null;
         if (m.lift.every(l => l >= P.takeoffFootCm)) {
-          this.jump = { takeoffT: t, samples: 1, visSum: person.conf, lostFrames: 0, landT: null, heels: [], heelPt: null, hand: false };
+          this.jump = { takeoffT: t, samples: 1, visSum: footVis, lostFrames: 0, landT: null, heels: [], heelPt: null, hand: false };
           this._set(STATES.JUMPING, t, 'Saut en cours…');
           return null;
         }
@@ -472,9 +481,9 @@ export class LongJumpDetector {
       case STATES.JUMPING: {
         const J = this.jump;
         if (multiple) return this._reject(t, 'Plusieurs personnes dans la zone');
-        if (!person || !m) { if (lost) return this._reject(t, 'Perte de suivi pendant le saut'); J.lostFrames++; return null; }
-        if (!person.inFrame) return this._reject(t, 'Sortie du cadre : élargissez le champ de la caméra');
-        J.samples++; J.visSum += person.conf;
+        if (!person || !m) { if (lost) return this._reject(t, 'Perte de suivi des pieds pendant le saut'); J.lostFrames++; return null; }
+        if (!feetIn) return this._reject(t, 'Pieds sortis du cadre : élargissez le champ de la caméra');
+        J.samples++; J.visSum += footVis;
         if (!J.landT) {
           if (t - J.takeoffT > P.maxFlightMs) return this._reject(t, 'Durée de vol invraisemblable');
           if (onGround && t - J.takeoffT >= P.minFlightMs && m.heelB > this.ref.toeStart + 15) { J.landT = t; }

@@ -66,5 +66,6 @@ function longPose(video, dt, cfg) {
   l[27] = n(heel + 3 * k - 2, fy - 8 * k); l[28] = n(heel + 3 * k + 2, fy - 8 * k);
   l[29] = n(heel - 2, fy); l[30] = n(heel + 2, fy);
   l[31] = n(toe - 2, fy); l[32] = n(toe + 2, fy);
+  if (cfg.upperHidden) for (const i of [0, 11, 12, 13, 14, 15, 16, 23, 24]) l[i] = { x: hip.x / W, y: -0.05, z: 0, visibility: 0.12 }; // caméra basse
   return l;
 }
