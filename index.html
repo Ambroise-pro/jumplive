@@ -114,6 +114,21 @@
   .startbtn .big { font-size: clamp(44px, 8vw, 120px); font-weight: 800; line-height: 1.05; }
   .startbtn .sub { font-size: clamp(16px, 2.2vw, 28px); font-weight: 600; min-height: 1.2em; }
   .startbtn:disabled { opacity: 1; background: #1f2937; color: #94a3b8; }
+  .choice { z-index: 13; }
+  .choicetitle { text-align: center; font-size: clamp(26px, 4vw, 48px); font-weight: 800; margin-top: 4px; }
+  .choicegrid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .choicebtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; border-radius: 32px; border: 0; color: #04121c; }
+  .choicebtn[data-choose="vertical"] { background: linear-gradient(160deg, #7dd3fc, #0284c7); }
+  .choicebtn[data-choose="long"] { background: linear-gradient(160deg, #fdba74, #ea580c); }
+  .choicebtn .ic { font-size: clamp(56px, 9vw, 120px); line-height: 1; }
+  .choicebtn .big { font-size: clamp(30px, 4.6vw, 64px); font-weight: 800; line-height: 1.05; text-align: center; }
+  .choicebtn .sub { font-size: clamp(15px, 1.8vw, 22px); font-weight: 600; opacity: .85; text-align: center; padding: 0 12px; }
+  @media (max-aspect-ratio: 1/1) { .choicegrid { grid-template-columns: 1fr; } }
+  .homemode { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .modetitle { font-size: clamp(22px, 3vw, 36px); font-weight: 800; }
+  .gearbtn.wide { width: auto; padding: 0 18px; font-size: 17px; }
+  ol.steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; color: #cbd5e1; font-size: 15px; }
+  .lcinfo { padding: 10px 12px; border-radius: 10px; background: var(--panel2); font-size: 14px; }
   .modesel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .modesel button { min-height: 76px; font-size: clamp(18px, 2.6vw, 30px); border-radius: 20px; }
   .modesel button.on { background: var(--blue); color: #04121c; border-color: transparent; }
@@ -211,12 +226,6 @@
     <div id="banner" class="banner hidden" role="alert"></div>
     <div id="editbar" class="editbar hidden">
       <div class="txt" id="editTxt"></div>
-      <span id="editLong" class="editlong hidden">
-        <label>1er repère <input type="number" step="1" min="20" max="500" data-s="longD1"> cm</label>
-        <label>2e repère <input type="number" step="1" min="40" max="600" data-s="longD2"> cm</label>
-      </span>
-      <button id="editCam" class="camswitch hidden">🔄 Caméra</button>
-      <button id="editFreeze" class="hidden">⏸ Figer l’image</button>
       <button id="editRetake" class="hidden">📸 Reprendre la photo</button>
       <button id="editCancel">Annuler</button>
       <button id="editSave" class="primary">Enregistrer</button>
@@ -282,27 +291,30 @@
   </aside>
 </div>
 
+<div id="choice" class="home choice">
+  <div class="homebar"><span>JumpMeasure <b>LIVE</b></span>
+    <span class="homelogos"><img id="choiceLogo-ecole" class="logo hidden" alt="L’École promotrice de santé"><img id="choiceLogo-main" class="logo hidden" alt="PassSport Santé"></span>
+    <button id="choiceGear" class="gearbtn" title="Paramètres : maintenir 1 seconde" aria-label="Paramètres administrateur (maintenir 1 s)">⚙</button></div>
+  <div class="choicetitle">Que voulez-vous mesurer ?</div>
+  <div class="choicegrid">
+    <button class="choicebtn" data-choose="vertical"><span class="ic">⬆</span><span class="big">Détente verticale</span><span class="sub">Saut sur place · tablette face au sauteur</span></button>
+    <button class="choicebtn" data-choose="long"><span class="ic">➡</span><span class="big">Saut en longueur</span><span class="sub">Pieds joints, sans élan · tablette de profil</span></button>
+  </div>
+</div>
+
 <div id="home" class="home hidden">
   <div class="homebar"><span>JumpMeasure <b>LIVE</b></span>
     <span class="homelogos"><img id="homeLogo-ecole" class="logo hidden" alt="L’École promotrice de santé"><img id="homeLogo-main" class="logo hidden" alt="PassSport Santé"></span>
     <button id="homeGear" class="gearbtn" title="Paramètres : maintenir 1 seconde" aria-label="Paramètres administrateur (maintenir 1 s)">⚙</button></div>
-  <div class="modesel" role="group" aria-label="Type de mesure">
-    <button data-measure="vertical">⬆ Détente verticale</button>
-    <button data-measure="long">➡ Saut en longueur</button>
-  </div>
+  <div class="homemode"><span id="homeMode" class="modetitle"></span>
+    <button id="btnChangeAct" class="gearbtn wide" title="Maintenir 1 seconde">⇄ Changer d’activité</button></div>
   <button id="btnStart" class="startbtn"><span class="big">Commencer<br>les mesures</span><span id="startSub" class="sub"></span></button>
   <div id="homeFlash" role="status"></div>
 </div>
 
-<div id="wizard" class="wizard hidden" role="dialog" aria-label="Calibration">
-  <h2>Calibration</h2>
+<div id="wizard" class="wizard hidden" role="dialog" aria-label="Calibration de la détente verticale">
+  <h2>Calibration — Détente verticale</h2>
   <div id="wzStatus" class="muted"></div>
-  <div class="wz-long">
-    <div class="muted"><b>Saut en longueur</b> : tablette <b>de profil</b>, perpendiculaire au couloir, à 4–5 m, pour voir toute la zone de réception. Posez le <b>décamètre</b> au sol le long du couloir, zéro sur la <b>ligne d’appel</b>, puis alignez les 3 repères sur l’image en direct : 0, puis deux graduations (par exemple 1 m et 2 m).</div>
-    <label class="f">Distance du 1er repère (cm)<input type="number" step="1" min="20" max="500" data-s="longD1"></label>
-    <label class="f">Distance du 2e repère (cm)<input type="number" step="1" min="40" max="600" data-s="longD2"></label>
-    <div class="wbtns"><button class="wopt" id="wzLong"><b>📏 Placer les repères sur le direct</b><span>Les 3 repères s’affichent sur l’image en direct : alignez-les sur le décamètre</span></button></div>
-  </div>
   <div class="wz-vertical">
   <div class="muted">Placez l’étalon <b>vertical</b>, à l’emplacement du saut, <b>au niveau du bassin</b> (même distance de la caméra que le sauteur), puis choisissez une méthode.</div>
   <div class="wbtns">
@@ -319,9 +331,25 @@
   <div id="wzMsg" class="wmsg" role="status"></div>
   <label class="f">Délai pour placer la feuille (s)<input type="number" step="1" min="0" max="30" data-s="detectDelaySec"></label>
   <label class="f wz-vertical">Distance mesurée entre les centres des carrés (cm)<input type="number" step="0.1" min="5" max="28" data-s="markerDistCm"></label>
-  <label class="c"><input type="checkbox" data-s="showWizard"> Afficher cet écran au démarrage</label>
   <div class="camrow"><button class="camswitch">🔄 Changer de caméra</button><span class="camname muted"></span></div>
-  <div class="btnrow"><button id="wzContinue" class="primary">Continuer</button></div>
+  <div class="btnrow"><button id="wzContinue" class="primary">Continuer</button><button id="wzBack">← Changer d’activité</button></div>
+</div>
+
+<div id="longcal" class="wizard hidden" role="dialog" aria-label="Calibration du saut en longueur">
+  <h2>Calibration — Saut en longueur</h2>
+  <div id="lcStatus" class="muted"></div>
+  <ol class="steps">
+    <li>Tablette <b>de profil</b>, perpendiculaire au couloir, assez loin pour voir la ligne d’appel et toute la zone de réception. Les <b>pieds</b> doivent rester visibles (le haut du corps peut sortir de l’image).</li>
+    <li><b>Décamètre</b> posé au sol le long du couloir, zéro sur la <b>ligne d’appel</b>.</li>
+    <li>Sur l’image en direct, faites glisser les 3 repères sur le décamètre : <b>0</b> (bleu), puis les deux graduations ci-dessous. Une loupe apparaît pendant le déplacement.</li>
+  </ol>
+  <label class="f">1er repère (cm)<input type="number" step="1" min="20" max="500" data-s="longD1"></label>
+  <label class="f">2e repère (cm)<input type="number" step="1" min="40" max="600" data-s="longD2"></label>
+  <div id="lcInfo" class="lcinfo"></div>
+  <div class="camrow"><button class="camswitch">🔄 Changer de caméra</button><button id="lcFreeze">⏸ Figer l’image</button></div>
+  <div class="camname muted"></div>
+  <div class="btnrow"><button id="lcSave" class="primary">Valider la calibration</button><button id="lcKeep">Garder la calibration actuelle</button></div>
+  <div class="btnrow"><button id="lcBack">← Changer d’activité</button></div>
 </div>
 
 <div id="viewer" class="viewer hidden" role="dialog" aria-label="Photo au sommet du saut">
@@ -342,7 +370,7 @@
     <details open><summary>Calibration</summary><div>
       <div id="calStatus"></div>
       <div class="btnrow">
-        <button id="btnWizard" class="primary">Assistant (détection auto)</button>
+        <button id="btnWizard" class="primary">Calibrer la détente (détection auto)</button>
         <button id="btnCal">Placer les repères à la main</button>
         <button id="btnZone">Définir la zone de saut</button>
         <button id="btnZoneAll">Zone = image entière</button>
@@ -520,7 +548,8 @@ let edit = null;     // édition calibration / zone
 let drag = null, loupe = null;
 const history = []; let histN = 0;
 let shownResult = null;
-let screen = 'home';               // 'home' (accueil élèves) | 'session' (série de sauts)
+let screen = 'choice';             // 'choice' (choix de l'activité) | 'home' (accueil des mesures) | 'session' (série de sauts)
+let longCalOpen = false;           // écran de calibration du saut en longueur
 let session = null;                 // série en cours : { n, entries: [...] }
 let sessionN = (() => { try { return Number(localStorage.getItem('jml.seriesN')) || 0; } catch { return 0; } })(); // numéro de série, continu entre les séances
 let prevDetState = null;
@@ -610,7 +639,7 @@ async function switchCamera(targetId = null) {
   const next = targetId ? cameras.find(c => c.id === targetId) : cameras[(i + 1) % cameras.length];
   if (!next || next.id === curDeviceId) return;
   if (R) closeReview();
-  const frozen = edit?.photo; if (frozen && edit.kind === 'calLong') { frozen.close?.(); edit.photo = null; setText($('#editFreeze'), '⏸ Figer l’image'); }
+  const frozen = edit?.photo; if (frozen && edit.kind === 'calLong') { frozen.close?.(); edit.photo = null; setText($('#lcFreeze'), '⏸ Figer l’image'); }
   S.deviceId = next.id; S.deviceLabel = next.label; saveS();
   flash(`Caméra : ${next.label}`, true);
   await startCamera();
@@ -624,6 +653,7 @@ video.addEventListener('resize', onVideoDims);
 
 function onVideoDims() {
   if (!vw()) return;
+  if (longCalOpen && !edit) setTimeout(() => { if (longCalOpen && !edit && vw()) startEdit('calLong', null, false, { panel: true }); }, 0);
   // nouvelles dimensions → l'ancien tampon n'est plus cohérent
   clearBuffer();
   revalidate();
@@ -1069,8 +1099,8 @@ function loadLogo(L) {
 function loadLogos() { LOGOS.forEach(loadLogo); }
 function refreshLogoUI() {
   for (const L of LOGOS) {
-    const pv = document.querySelector(`[data-logo-preview="${L.id}"]`), home = $('#homeLogo-' + L.id);
-    for (const el of [pv, home]) { if (logoOk(L)) el.src = L.img.src; else el.removeAttribute('src'); }
+    const pv = document.querySelector(`[data-logo-preview="${L.id}"]`), home = $('#homeLogo-' + L.id), ch = $('#choiceLogo-' + L.id);
+    for (const el of [pv, home, ch]) { if (logoOk(L)) el.src = L.img.src; else el.removeAttribute('src'); }
     pv.classList.toggle('hidden', !logoOk(L));
     setText(document.querySelector(`[data-logo-info="${L.id}"]`), logoOk(L) ? `Source : ${L.src}.` : `Aucun logo (fichier ${L.file.replace('./', '')} absent).`);
   }
@@ -1655,12 +1685,11 @@ function startEdit(kind, det = null, fromWizard = false, opts = {}) {
     edit = { kind, rect: { x: z.x, y: z.y, w: z.w, h: z.h } };
   }
   $('#editRetake').classList.toggle('hidden', !(edit.kind === 'cal' && edit.photo));
-  $('#editLong').classList.toggle('hidden', edit.kind !== 'calLong');
-  $('#editFreeze').classList.toggle('hidden', edit.kind !== 'calLong');
-  $('#editCam').classList.toggle('hidden', edit.kind !== 'calLong');
-  setText($('#editFreeze'), '⏸ Figer l’image');
+  edit.panel = !!opts.panel;
+  setText($('#lcFreeze'), '⏸ Figer l’image');
   if (edit.kind === 'calLong') syncInputs();
-  $('#editbar').classList.remove('hidden'); updateEditText(); dirty = true; updateUI(true);
+  $('#editbar').classList.toggle('hidden', edit.panel);   // la longueur a son propre écran de calibration
+  updateEditText(); dirty = true; updateUI(true);
 }
 function updateEditText() {
   if (!edit) return;
@@ -1668,8 +1697,8 @@ function updateEditText() {
     const c = { p0: edit.p0, p1: edit.p1, p2: edit.p2, d1: S.longD1, d2: S.longD2, videoWidth: vw(), videoHeight: vh() };
     const st = validateLongCalibration(c, null), ax = longAxis(c);
     const info = st.valid ? `1 m ≈ ${fmt(100 / ax.cmPerPxAt(edit.p0), 0)} px près de la ligne` : st.reasons.join(' · ');
-    setHTML($('#editTxt'), `${edit.photo ? 'Image figée' : 'Image en direct'} : alignez les 3 repères sur le <b>décamètre au sol</b> : <b>0 = ligne d’appel</b> (bleu), puis ${fmt(S.longD1 / 100, 2)} m et ${fmt(S.longD2 / 100, 2)} m.
-      <small>${info}${st.warnings.length ? '<br>⚠ ' + st.warnings.join(' · ') : ''}. Le saut se fait vers le 2e repère. Une loupe apparaît pendant le déplacement. Caméra : ${camName().replace(/</g, '&lt;')}.</small>`);
+    const html = `<b>${edit.photo ? 'Image figée' : 'Image en direct'}</b> · repères 0, ${fmt(S.longD1 / 100, 2)} m et ${fmt(S.longD2 / 100, 2)} m<br>${st.valid ? '✓ ' : '⚠ '}${info}${st.warnings.length ? '<br>⚠ ' + st.warnings.join('<br>⚠ ') : ''}`;
+    setHTML($('#lcInfo'), html); setHTML($('#editTxt'), html);
     return;
   }
   if (edit.kind === 'cal') {
@@ -1719,14 +1748,14 @@ function endEdit(save) {
 $('#editSave').onclick = () => endEdit(true);
 $('#editCancel').onclick = () => endEdit(false);
 // mode longueur : figer l'image le temps d'ajuster (si quelqu'un passe devant), puis revenir au direct
-$('#editFreeze').onclick = async () => {
+$('#lcFreeze').onclick = async () => {
   if (edit?.kind !== 'calLong') return;
-  if (edit.photo) { edit.photo.close?.(); edit.photo = null; setText($('#editFreeze'), '⏸ Figer l’image'); }
+  if (edit.photo) { edit.photo.close?.(); edit.photo = null; setText($('#lcFreeze'), '⏸ Figer l’image'); }
   else {
     const img = grabFrame();
     try { edit.photo = await createImageBitmap(img); }
     catch { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').putImageData(img, 0, 0); edit.photo = c; }
-    setText($('#editFreeze'), '▶ Revenir au direct');
+    setText($('#lcFreeze'), '▶ Revenir au direct');
   }
   updateEditText(); dirty = true;
 };
@@ -1805,7 +1834,11 @@ function updateUI(force = false) {
     setText(hud, s);
   }
   // accueil
-  const homeVisible = screen === 'home' && !wizardOpen && !edit && !detecting;
+  const calibUI = wizardOpen || longCalOpen || !!edit || detecting;
+  $('#choice').classList.toggle('hidden', !(screen === 'choice' && !calibUI));
+  setText($('#homeMode'), isLong() ? '➡ Saut en longueur' : '⬆ Détente verticale');
+  updateLongCal();
+  const homeVisible = screen === 'home' && !calibUI;
   $('#home').classList.toggle('hidden', !homeVisible);
   if (homeVisible) {
     let ok = true, sub = '';
@@ -1818,7 +1851,7 @@ function updateUI(force = false) {
     document.querySelectorAll('[data-measure]').forEach(b => b.classList.toggle('on', b.dataset.measure === S.measureMode));
     setText($('#homeFlash'), flashMsg && now < flashUntil ? flashMsg.txt : '');
   }
-  for (const L of LOGOS) $('#homeLogo-' + L.id).classList.toggle('hidden', !(S.showLogo && logoOk(L)));
+  for (const L of LOGOS) for (const pre of ['#homeLogo-', '#choiceLogo-']) $(pre + L.id).classList.toggle('hidden', !(S.showLogo && logoOk(L)));
   $('#stageLogo').classList.toggle('hidden', !(S.showLogo && logoOk(LOGOS[0]) && screen === 'session' && !R && !edit && !detecting));
   updateBigState();
   renderSession();
@@ -1891,14 +1924,15 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ================= Panneau administrateur ================= */
-function bindLongPress(el) {
-  let timer = null;
-  el.addEventListener('pointerdown', () => { el.classList.add('pressing'); timer = setTimeout(() => { el.classList.remove('pressing'); openAdmin(); }, 1000); });
+function bindLongPress(el, fn = openAdmin, hint = 'Maintenez ⚙ une seconde pour ouvrir les paramètres.') {
+  let timer = null, fired = false;
+  el.addEventListener('pointerdown', () => { fired = false; el.classList.add('pressing'); timer = setTimeout(() => { el.classList.remove('pressing'); fired = true; fn(); }, 1000); });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => { clearTimeout(timer); el.classList.remove('pressing'); }));
-  el.addEventListener('click', () => { if ($('#admin').classList.contains('hidden')) flash('Maintenez ⚙ une seconde pour ouvrir les paramètres.', true); });
+  el.addEventListener('click', () => { if (!fired) flash(hint, true); });
   el.addEventListener('contextmenu', (e) => e.preventDefault());
 }
-bindLongPress($('#gear')); bindLongPress($('#homeGear'));
+bindLongPress($('#gear')); bindLongPress($('#homeGear')); bindLongPress($('#choiceGear'));
+bindLongPress($('#btnChangeAct'), () => backToChoice(), 'Maintenez une seconde pour changer d’activité.');
 
 function openAdmin() { syncInputs(); $('#admin').classList.remove('hidden'); updateAdmin(); renderHistory(); if ($('#galDetails').open) renderGallery(true); }
 function closeAdmin() { $('#admin').classList.add('hidden'); }
@@ -1931,10 +1965,10 @@ $('#btnDetDefaults').onclick = () => { S.det = { ...DEF.det }; S.minHipVis = DEF
 $('#btnCamApply').onclick = () => { if (R) closeReview(); S.deviceLabel = ''; saveS(); startCamera(); };
 $('#btnAiReload').onclick = () => { landmarker = null; aiState = 'idle'; loadModel(); };
 $('#btnCal').onclick = () => runCalibration('manual', false);
-$('#btnWizard').onclick = () => { closeAdmin(); openWizard(); };
+$('#btnWizard').onclick = () => { closeAdmin(); if (isLong()) setMeasureMode('vertical'); if (screen === 'choice') screen = 'home'; openWizard(); };
 $('#btnZone').onclick = () => startEdit('zone');
 $('#btnZoneAll').onclick = () => { if (isLong()) { zoneLong = null; store.del(K.zoneLong); } else { zone = null; store.del(K.zone); } revalidate(); flash('Zone : image entière.', true); };
-$('#btnCalLong').onclick = () => startEdit('calLong', null, false);
+$('#btnCalLong').onclick = () => { closeAdmin(); if (!isLong()) setMeasureMode('long'); if (screen === 'choice') screen = 'home'; openLongCal(); };
 $('#btnCalLongClear').onclick = () => { if (confirm('Effacer la calibration du saut en longueur ?')) { calLong = null; store.del(K.calLong); revalidate(); } };
 $('#btnCalClear').onclick = () => { if (confirm('Effacer la calibration enregistrée ?')) { cal = null; store.del(K.cal); revalidate(); } };
 $('#btnFull').onclick = () => { const d = document.documentElement; (document.fullscreenElement ? document.exitFullscreen() : d.requestFullscreen?.())?.catch?.(() => {}); };
@@ -2129,15 +2163,6 @@ async function runCalibration(method, fromWizard = true) {
 
 function updateWizard() {
   if (!wizardOpen) return;
-  document.querySelectorAll('#wizard .wz-vertical').forEach(el => el.classList.toggle('hidden', isLong()));
-  document.querySelectorAll('#wizard .wz-long').forEach(el => el.classList.toggle('hidden', !isLong()));
-  if (isLong()) {
-    setHTML($('#wzStatus'), (!calLong ? '<span class="bad">Saut en longueur : aucune calibration.</span>'
-      : `<span class="${calLongStatus.valid ? 'ok' : 'bad'}">Saut en longueur : calibration ${calLongStatus.valid ? 'valide' : 'invalide'}</span>${calLongStatus.valid ? '' : '<br>' + calLongStatus.reasons.join(' · ')}`) + (vw() ? '' : '<br>En attente de la caméra…'));
-    $('#wzLong').disabled = !vw() || detecting;
-    setText($('#wzContinue'), calLongStatus.valid ? 'Continuer avec la calibration actuelle' : 'Continuer sans calibrer');
-    return;
-  }
   let st;
   if (!cal) st = '<span class="bad">Aucune calibration enregistrée.</span>';
   else st = `<span class="${calStatus.valid ? 'ok' : 'bad'}">Calibration actuelle ${calStatus.valid ? 'valide' : 'invalide'}</span> · ${METHOD_FR[cal.method ?? 'manual']} · ${fmt(cal.cmPerPx, 4)} cm/px · ${new Date(cal.date).toLocaleString('fr-FR')}${calStatus.valid ? '' : '<br>' + calStatus.reasons.join(' · ')}`;
@@ -2158,8 +2183,44 @@ function updateWizard() {
 
 document.querySelectorAll('[data-detect]').forEach(b => b.addEventListener('click', () => runCalibration(b.dataset.detect, true)));
 $('#wzManual').onclick = () => runCalibration('manual', true);
-$('#wzLong').onclick = () => startEdit('calLong', null, true);
 $('#wzContinue').onclick = () => { closeWizard(); detector.reset(); updateUI(true); };
+$('#wzBack').onclick = () => { closeWizard(); backToChoice(); };
+
+/* ================= Parcours : choix de l'activité → calibration → mesures ================= */
+function chooseActivity(m) {
+  setMeasureMode(m);
+  screen = 'home';
+  openCalibration(m);
+}
+function openCalibration(m = S.measureMode) {
+  closeAdmin();
+  if (m === 'long') openLongCal(); else openWizard();
+}
+function backToChoice() {
+  if (session) endSession();
+  closeWizard(); closeLongCal();
+  if (edit) endEdit(false);
+  screen = 'choice'; detector.reset(); updateUI(true);
+}
+function openLongCal() {
+  if (wizardOpen) closeWizard();
+  longCalOpen = true; $('#longcal').classList.remove('hidden');
+  if (vw()) startEdit('calLong', null, false, { panel: true });
+  updateUI(true);
+}
+function closeLongCal() { longCalOpen = false; $('#longcal').classList.add('hidden'); }
+function updateLongCal() {
+  if (!longCalOpen) return;
+  setHTML($('#lcStatus'), !calLong ? '<span class="bad">Aucune calibration enregistrée.</span>'
+    : `<span class="${calLongStatus.valid ? 'ok' : 'bad'}">Calibration actuelle ${calLongStatus.valid ? 'valide' : 'invalide'}</span> · ${new Date(calLong.date).toLocaleString('fr-FR')}${calLongStatus.valid ? '' : '<br>' + calLongStatus.reasons.join(' · ')}`
+    + (vw() ? '' : '<br>En attente de la caméra…'));
+  $('#lcKeep').classList.toggle('hidden', !calLongStatus.valid);
+  $('#lcSave').disabled = !edit;
+}
+document.querySelectorAll('[data-choose]').forEach(b => b.addEventListener('click', () => chooseActivity(b.dataset.choose)));
+$('#lcSave').onclick = () => { endEdit(true); if (!edit) { closeLongCal(); updateUI(true); } };
+$('#lcKeep').onclick = () => { closeLongCal(); endEdit(false); updateUI(true); };
+$('#lcBack').onclick = () => backToChoice();
 
 /* ================= Veille, visibilité ================= */
 let wakeLock = null;
@@ -2171,10 +2232,9 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ================= Démarrage ================= */
-window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, get detector() { return detector; }, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get calLong() { return calLong; }, get calLongStatus() { return calLongStatus; }, setMeasureMode, switchCamera, get cameras() { return cameras; }, get curDeviceId() { return curDeviceId; }, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, logos: LOGOS, PhotoDB, get galleryItems() { return galleryItems; }, renderGallery, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
+window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, get detector() { return detector; }, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get calLong() { return calLong; }, get calLongStatus() { return calLongStatus; }, setMeasureMode, chooseActivity, get longCalOpen() { return longCalOpen; }, switchCamera, get cameras() { return cameras; }, get curDeviceId() { return curDeviceId; }, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, logos: LOGOS, PhotoDB, get galleryItems() { return galleryItems; }, renderGallery, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
 resizeCanvas();
 loadLogos();
-if (S.showWizard) openWizard();
 startCamera();
 if (S.mode === 'ai') loadModel();
 updateUI(true);

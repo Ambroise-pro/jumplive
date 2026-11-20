@@ -44,6 +44,12 @@ try:
             page.mouse.move(cb['x'] + a['x'], cb['y'] + a['y']); page.mouse.down()
             page.mouse.move(cb['x'] + c['x'], cb['y'] + c['y'], steps=8); page.mouse.up()
 
+        def enter_vertical():
+            # écran de choix → détente → écran de calibration de la détente → continuer → accueil des mesures
+            page.wait_for_function('!document.querySelector("#choice").classList.contains("hidden")', timeout=10000)
+            page.click('[data-choose="vertical"]'); page.wait_for_function('JML.wizardOpen', timeout=5000)
+            page.click('#wzContinue'); page.wait_for_timeout(200)
+
         def tools():
             if hidden('#tools'): page.click('#btnTools')
 
@@ -52,7 +58,11 @@ try:
         wait('window.JML && document.querySelector("#video").videoWidth > 0')
         W, H = ev('[document.querySelector("#video").videoWidth, document.querySelector("#video").videoHeight]')
         check('caméra démarrée', W > 0, f'{W}×{H}')
-        page.wait_for_timeout(300)
+        check('écran de choix de l’activité au démarrage', not hidden('#choice') and hidden('#home'))
+        page.screenshot(path=f'{OUT}/00_choix_activite.png')
+        page.click('[data-choose="vertical"]'); page.wait_for_function('JML.wizardOpen', timeout=5000)
+        check('détente → écran de calibration de la détente', 'Détente verticale' in page.inner_text('#wizard h2') and hidden('#longcal'))
+        page.click('#wzContinue'); page.wait_for_timeout(300)
         check('accueil affiché, bouton bloqué sans calibration', not hidden('#home') and ev('document.querySelector("#btnStart").disabled')
               and 'Calibration' in page.inner_text('#startSub'), page.inner_text('#startSub'))
         wait('JML.aiState === "error" || JML.aiState === "ready"', 40000)
@@ -88,7 +98,7 @@ try:
         check('calibration précédente conservée après annulation', ev('JML.calStatus.valid') and abs(ev('JML.cal.cmPerPx') - cal['cmPerPx']) < 1e-12)
 
         # 3. Persistance après rechargement
-        page.reload(); wait('document.querySelector("#video").videoWidth > 0'); page.wait_for_timeout(500)
+        page.reload(); wait('document.querySelector("#video").videoWidth > 0'); enter_vertical(); page.wait_for_timeout(300)
         check('calibration conservée après rechargement', ev('JML.calStatus.valid'))
 
         # 4. Changement de résolution → calibration invalide, puis retour
@@ -130,7 +140,7 @@ try:
         # 6. Série autonome en mode IA (faux modèle : 3 sauts de 38, 48 et 33 cm, sans toucher la tablette)
         ev('''() => { const s = JSON.parse(localStorage.getItem("jml.settings.v1")); s.mode = "ai"; s.mpBase = "./tests/mock-mediapipe";
                      localStorage.setItem("jml.settings.v1", JSON.stringify(s)); }''')
-        page.reload(); wait('document.querySelector("#video").videoWidth > 0')
+        page.reload(); wait('document.querySelector("#video").videoWidth > 0'); enter_vertical()
         ev('() => { window.__MOCK_CMPX = JML.cal.cmPerPx; window.__MOCK_FLIGHTS = [30, 40, 25]; window.__MOCK_PERIOD = 6500; }')
         wait('JML.aiState === "ready"')
         # logo de TEST (image générée) importé depuis les paramètres
@@ -236,7 +246,7 @@ try:
         # 9. Rotation simulée (calibration enregistrée en orientation inverse)
         ev('''() => { const c = JSON.parse(localStorage.getItem("jml.calibration.v1")); [c.videoWidth, c.videoHeight] = [c.videoHeight, c.videoWidth];
                      localStorage.setItem("jml.calibration.v1", JSON.stringify(c)); }''')
-        page.reload(); wait('document.querySelector("#video").videoWidth > 0'); page.wait_for_timeout(500)
+        page.reload(); wait('document.querySelector("#video").videoWidth > 0'); enter_vertical(); page.wait_for_timeout(300)
         check('rotation détectée → calibration invalide, accueil bloqué', 'Orientation' in ev('JML.calStatus.reasons.join()') and ev('document.querySelector("#btnStart").disabled'))
 
         check('aucune erreur JavaScript', not errors, '; '.join(errors)[:300])
@@ -247,7 +257,9 @@ try:
             c2.add_init_script("""localStorage.setItem('jml.settings.v1', JSON.stringify({ showWizard: false, mode: 'ai', mpBase: './tests/mock-mediapipe' }));
               localStorage.setItem('jml.calibration.v1', JSON.stringify({ p1: {x: 640, y: 216}, p2: {x: 640, y: 336}, cmPerPx: 29.7/120, refCm: 29.7, method: 'manual', videoWidth: 1280, videoHeight: 720, date: new Date().toISOString() }));""")
             p2 = c2.new_page(); p2.goto(URL); p2.wait_for_function('document.querySelector("#video").videoWidth > 0', timeout=15000)
-            p2.wait_for_timeout(1200); p2.screenshot(path=f'{OUT}/{name}_accueil.png')
+            p2.wait_for_timeout(800); p2.screenshot(path=f'{OUT}/{name}_choix.png')
+            p2.click('[data-choose="vertical"]'); p2.wait_for_function('JML.wizardOpen', timeout=5000); p2.click('#wzContinue')
+            p2.wait_for_timeout(500); p2.screenshot(path=f'{OUT}/{name}_accueil.png')
             if not p2.evaluate('document.querySelector("#btnStart").disabled'):
                 p2.evaluate('() => { window.__MOCK_CMPX = 29.7/120; }')
                 p2.click('#btnStart'); p2.wait_for_timeout(9000); p2.screenshot(path=f'{OUT}/{name}_serie.png')

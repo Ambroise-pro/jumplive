@@ -70,7 +70,9 @@ try:
         ev = page.evaluate
         page.goto(f'{BASE}/index.html')
         page.wait_for_function('document.querySelector("#video").videoWidth > 0', timeout=15000)
-        check('écran de calibration affiché au démarrage', ev('JML.wizardOpen'))
+        check('choix de l’activité au démarrage', not ev('document.querySelector("#choice").classList.contains("hidden")'))
+        page.click('[data-choose="vertical"]'); page.wait_for_function('JML.wizardOpen', timeout=5000)
+        check('détente → écran de calibration de la détente', ev('JML.wizardOpen'))
         page.wait_for_timeout(800)
         page.screenshot(path=f'{OUT}/01_assistant.png')
 
@@ -122,7 +124,8 @@ try:
         page.screenshot(path=f'{OUT}/03_comparaison.png')
         page.click('#wzContinue')
         page.reload(); page.wait_for_function('document.querySelector("#video").videoWidth > 0', timeout=15000); page.wait_for_timeout(500)
-        check('après rechargement : assistant affiché, calibration valide', ev('JML.wizardOpen') and ev('JML.calStatus.valid'))
+        page.click('[data-choose="vertical"]'); page.wait_for_function('JML.wizardOpen', timeout=5000)
+        check('après rechargement : choix → calibration détente, calibration valide', ev('JML.wizardOpen') and ev('JML.calStatus.valid'))
         # distance de marqueurs corrigée (impression non à 100 %)
         set_num('input[data-s="markerDistCm"]', 19.5)
         r, msg = detect('markers')

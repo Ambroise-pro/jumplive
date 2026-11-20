@@ -28,13 +28,13 @@ try:
         cams = ev('JML.cameras.map(c => c.id)'); cam1 = ev('JML.curDeviceId')
         check('deux caméras détectées', len(cams) == 2, ', '.join(ev('JML.cameras.map(c => c.label)')))
 
-        # calibration longueur sur le direct : changement de caméra depuis la barre
-        long_press(); page.click('#btnCalLong'); page.wait_for_function('JML.edit && JML.edit.kind === "calLong"')
-        check('bouton caméra dans la barre de calibration', ev('!document.querySelector("#editCam").classList.contains("hidden")'))
-        page.click('#editCam'); page.wait_for_function(f'JML.curDeviceId && JML.curDeviceId !== "{cam1}" && document.querySelector("#video").videoWidth > 0', timeout=10000)
+        # écran de calibration longueur : changement de caméra
+        page.click('[data-choose="long"]'); page.wait_for_function('JML.edit && JML.edit.kind === "calLong"')
+        check('bouton caméra dans l’écran de calibration longueur', page.locator('#longcal .camswitch').is_visible())
+        page.click('#longcal .camswitch'); page.wait_for_function(f'JML.curDeviceId && JML.curDeviceId !== "{cam1}" && document.querySelector("#video").videoWidth > 0', timeout=10000)
         cam2 = ev('JML.curDeviceId')
         check('caméra changée pendant la calibration, réglage toujours ouvert', cam2 != cam1 and ev('JML.edit && JML.edit.kind') == 'calLong', page.inner_text('#editTxt')[-60:])
-        page.click('#editSave'); page.wait_for_timeout(300)
+        page.click('#lcSave'); page.wait_for_timeout(300)
         check('calibration longueur liée à la 2e caméra', ev('JML.calLong.deviceId') == cam2 and ev('JML.calLongStatus.valid'))
 
         # retour à la 1re caméra → calibration longueur invalide
@@ -43,15 +43,14 @@ try:
         check('autre caméra → calibration longueur signalée invalide', not ev('JML.calLongStatus.valid') and 'Caméra différente' in ev('JML.calLongStatus.reasons.join()'))
         page.click('#adminClose')
 
-        # changement de mode : la longueur reprend sa caméra
-        page.click('[data-measure="vertical"]'); page.wait_for_timeout(300)
-        page.click('[data-measure="long"]')
-        page.wait_for_function(f'JML.curDeviceId === "{cam2}"', timeout=10000); page.wait_for_timeout(400)
-        check('mode longueur → bascule automatique sur sa caméra, calibration valide', ev('JML.calLongStatus.valid') and not ev('document.querySelector("#btnStart").disabled'))
-
-        # assistant : bouton et nom de la caméra active
-        long_press(); page.click('#btnWizard'); page.wait_for_timeout(300)
-        check('écran Calibration : bouton et caméra active affichés', 'Caméra active' in page.inner_text('#wizard .camname'), page.inner_text('#wizard .camname'))
+        # changement d'activité : la longueur reprend sa caméra
+        long_press('#btnChangeAct'); page.wait_for_timeout(300)
+        page.click('[data-choose="long"]')
+        page.wait_for_function(f'JML.curDeviceId === "{cam2}"', timeout=10000); page.wait_for_timeout(500)
+        check('choix longueur → bascule automatique sur sa caméra, calibration valide', ev('JML.calLongStatus.valid') and page.locator('#lcKeep').is_visible())
+        check('écran de calibration : caméra active affichée', 'Caméra active' in page.inner_text('#longcal .camname'), page.inner_text('#longcal .camname'))
+        page.click('#lcKeep'); page.wait_for_timeout(300)
+        check('mesures prêtes', not ev('document.querySelector("#btnStart").disabled'))
         check('persistance du choix de caméra', ev('JML.S.deviceId') == cam2)
         check('aucune erreur JavaScript', not errors, '; '.join(errors)[:300])
         b.close()

@@ -55,14 +55,20 @@ L'écran de démarrage propose trois boutons, plus *Repères à la main*. Après
 
 Une limite commune aux trois : la détection ne vérifie **pas** que la feuille est au même plan de profondeur que le bassin. La feuille doit être **retirée avant de sauter**, puisqu'elle est à l'emplacement du saut ; elle ne peut donc pas servir à détecter un déplacement de la caméra pendant la séance.
 
-## Deux types de mesure
+## Parcours
 
-À l'accueil, choisis **⬆ Détente verticale** ou **➡ Saut en longueur** (pieds joints, sans élan). Chaque mode a **sa propre calibration et sa propre zone de saut**, conservées indépendamment.
+1. **Choix de l'activité** (au démarrage) : **⬆ Détente verticale** ou **➡ Saut en longueur**.
+2. **Calibration propre à l'activité** :
+   - détente : écran *Calibration — Détente verticale* (feuille A4 : 3 méthodes de détection ou repères à la main, sur photo) ;
+   - longueur : écran *Calibration — Saut en longueur* (repères alignés sur le décamètre, sur l'image en direct).
+   Si une calibration valide existe déjà, *Continuer avec la calibration actuelle* (détente) ou *Garder la calibration actuelle* (longueur).
+3. **Accueil des mesures** de l'activité : **« Commencer les mesures »**, puis les séries de sauts.
+4. **⇄ Changer d'activité** (maintenir 1 s, sur l'accueil des mesures) ramène à l'écran de choix. Chaque activité garde sa propre calibration, sa zone de saut et sa caméra.
 
 ### Saut en longueur : installation
 - **Tablette de profil**, perpendiculaire au couloir, à environ 4–5 m et à hauteur de hanche, pour voir la ligne d'appel et toute la zone de réception (jusqu'à environ 3 m) avec de la marge : un élève qui sort du cadre à la réception voit son saut écarté.
 - **Au sol**, pose le **décamètre** le long du couloir, le zéro sur la **ligne d'appel**.
-- **Calibration** sur l'**image en direct** : *Paramètres → Calibration → Calibrer la longueur*, ou l'écran Calibration au démarrage quand le mode longueur est choisi. Les 3 repères apparaissent sur le direct : aligne-les sur le décamètre, d'abord le zéro (ligne d'appel, en bleu), puis deux graduations, par défaut **1 m et 2 m**. Ces distances se règlent dans la même barre, par exemple 1 m et 3 m pour couvrir toute la zone de réception. Une loupe aide au placement, et **⏸ Figer l'image** gèle le direct si quelqu'un passe devant (**▶ Revenir au direct** ensuite). Trois repères permettent de **corriger la perspective** si la tablette n'est pas parfaitement perpendiculaire : un avertissement s'affiche alors.
+- **Calibration** sur l'**image en direct**, dans l'écran *Calibration — Saut en longueur* (ou *Paramètres → Calibration → Calibrer la longueur*). Les 3 repères apparaissent sur le direct : aligne-les sur le décamètre, d'abord le zéro (ligne d'appel, en bleu), puis deux graduations, par défaut **1 m et 2 m**. Ces distances se règlent dans la même barre, par exemple 1 m et 3 m pour couvrir toute la zone de réception. Une loupe aide au placement, et **⏸ Figer l'image** gèle le direct si quelqu'un passe devant (**▶ Revenir au direct** ensuite). Trois repères permettent de **corriger la perspective** si la tablette n'est pas parfaitement perpendiculaire : un avertissement s'affiche alors.
 - À l'écran, une **règle au sol** (ligne d'appel, graduations tous les 50 cm) permet de vérifier la calibration d'un coup d'œil.
 
 ### Changer de caméra
