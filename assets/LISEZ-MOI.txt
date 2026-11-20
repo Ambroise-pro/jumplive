@@ -1,3 +1,5 @@
-Déposez ici le logo du Défi Passeport Santé sous le nom logo.png (fond transparent conseillé).
-Il sera affiché sur l’accueil, l’écran de mesure et les photos.
-Un logo importé depuis Paramètres → Affichage est prioritaire sur ce fichier.
+Logos affichés sur l’accueil, l’écran de mesure et les photos :
+- logo.png : PassSport Santé (photos : en haut à droite, fond transparent)
+- logo-ecole.jpg : L’École promotrice de santé 26-27 (photos : en haut à gauche)
+Pour les changer pour tous les appareils, remplacez ces fichiers (mêmes noms).
+Un logo importé depuis Paramètres → Affichage est prioritaire, sur la tablette concernée uniquement.

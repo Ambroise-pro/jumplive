@@ -141,6 +141,8 @@
   .tools { display: grid; gap: 10px; padding: 12px; border: 1px dashed var(--line); border-radius: var(--r); }
   .tools .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   /* Logo */
+  .homelogos { display: flex; gap: 10px; align-items: center; }
+  .logoslot { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
   .logo { max-height: 64px; max-width: 34vw; object-fit: contain; background: rgba(255,255,255,.92); padding: 6px 10px; border-radius: 12px; }
   .stagelogo { position: absolute; right: 12px; bottom: 30px; z-index: 3; max-height: 16%; max-width: 24%; object-fit: contain;
     background: rgba(255,255,255,.92); padding: 6px; border-radius: 10px; pointer-events: none; }
@@ -203,7 +205,7 @@
       <button id="editSave" class="primary">Enregistrer</button>
     </div>
     <div id="hud" class="hud"></div>
-    <img id="stageLogo" class="stagelogo hidden" alt="">
+    <img id="stageLogo" class="stagelogo hidden" alt="PassSport Santé">
     <div id="bigState" class="bigstate hidden" aria-live="polite"><div id="bigTxt" class="bt"></div><div id="bigSub" class="bs"></div></div>
     <div id="countdown" class="countdown hidden" role="timer" aria-live="assertive">
       <div class="cdnum" id="cdNum">5</div>
@@ -264,7 +266,7 @@
 
 <div id="home" class="home hidden">
   <div class="homebar"><span>JumpMeasure <b>LIVE</b></span>
-    <img id="homeLogo" class="logo hidden" alt="Défi Passeport Santé">
+    <span class="homelogos"><img id="homeLogo-ecole" class="logo hidden" alt="L’École promotrice de santé"><img id="homeLogo-main" class="logo hidden" alt="PassSport Santé"></span>
     <button id="homeGear" class="gearbtn" title="Paramètres : maintenir 1 seconde" aria-label="Paramètres administrateur (maintenir 1 s)">⚙</button></div>
   <button id="btnStart" class="startbtn"><span class="big">Commencer<br>les mesures</span><span id="startSub" class="sub"></span></button>
   <div id="homeFlash" role="status"></div>
@@ -362,14 +364,25 @@
       <label class="c"><input type="checkbox" data-s="showCal"> Afficher les repères de calibration</label>
       <label class="c"><input type="checkbox" data-s="showSkeleton"> Afficher le squelette (IA)</label>
       <label class="c"><input type="checkbox" data-s="showHud"> Afficher les performances</label>
-      <div><b>Logo (Défi Passeport Santé)</b></div>
-      <img id="logoPreview" class="logoprev hidden" alt="Logo actuel">
-      <div class="btnrow">
-        <label class="btnlink filebtn">Importer un logo<input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden></label>
-        <button id="btnLogoClear">Retirer le logo importé</button>
+      <div class="logoslot">
+        <div><b>Logo PassSport Santé (photos : en haut à droite)</b></div>
+        <img class="logoprev hidden" data-logo-preview="main" alt="Logo actuel">
+        <div class="btnrow">
+          <label class="btnlink filebtn">Remplacer<input type="file" data-logo-file="main" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden></label>
+          <button data-logo-clear="main">Logo par défaut</button>
+        </div>
+        <div class="muted" data-logo-info="main"></div>
       </div>
-      <div class="muted" id="logoInfo"></div>
-      <label class="c"><input type="checkbox" data-s="showLogo"> Afficher le logo (accueil, écran de mesure et photo)</label>
+      <div class="logoslot">
+        <div><b>Logo L’École promotrice de santé (photos : en haut à gauche)</b></div>
+        <img class="logoprev hidden" data-logo-preview="ecole" alt="Logo actuel">
+        <div class="btnrow">
+          <label class="btnlink filebtn">Remplacer<input type="file" data-logo-file="ecole" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden></label>
+          <button data-logo-clear="ecole">Logo par défaut</button>
+        </div>
+        <div class="muted" data-logo-info="ecole"></div>
+      </div>
+      <label class="c"><input type="checkbox" data-s="showLogo"> Afficher les logos (accueil, écran de mesure et photos)</label>
       <label class="c"><input type="checkbox" data-s="photoOnResult"> Afficher la photo au sommet après chaque saut</label>
       <label class="c"><input type="checkbox" data-s="allowShare"> Permettre aux élèves d’envoyer ou d’enregistrer la photo</label>
       <div class="muted">Droit à l’image : vérifiez les autorisations des élèves (et de leurs responsables) avant d’activer l’envoi. Les photos sont effacées à la fin de chaque série.</div>
@@ -825,7 +838,7 @@ async function refreshComposite(entry) {
   line(entry.apex.refY, '#38bdf8', 'départ'); line(entry.apex.apexY, '#fb923c', 'sommet');
   drawDim(g, { x: entry.apex.apexX, y: entry.apex.refY }, { x: entry.apex.apexX, y: entry.apex.apexY }, `${fmt(v)} cm`,
     W, Math.round(H * 0.06), Math.max(3, W / 320));
-  const hasLogo = drawLogoOn(g, W, H);
+  const hasLogo = drawLogosOn(g, W, H);
   g.fillStyle = '#0b0f14'; g.fillRect(0, H, W, band);
   g.textBaseline = 'middle';
   g.fillStyle = '#4ade80'; g.font = `800 ${Math.round(band * 0.6)}px system-ui, sans-serif`;
@@ -870,48 +883,68 @@ function drawDim(g, a, b, label, canvasW, fontPx, lw) {
   g.restore();
 }
 
-/** Logo en haut à droite de la photo, sur fond blanc. */
-function drawLogoOn(g, W, H) {
-  if (!logoImg || !S.showLogo || !logoImg.naturalWidth || !logoImg.naturalHeight) return false;
-  const ratio = logoImg.naturalWidth / logoImg.naturalHeight;
-  let lh = H * 0.16, lw = lh * ratio;
-  if (lw > W * 0.3) { lw = W * 0.3; lh = lw / ratio; }
-  const pad = Math.round(W * 0.01), x = W - lw - pad * 3, y = pad * 2;
-  g.save(); g.fillStyle = 'rgba(255,255,255,.93)'; roundRectPath(g, x - pad, y - pad, lw + 2 * pad, lh + 2 * pad, pad * 1.5); g.fill();
-  g.drawImage(logoImg, x, y, lw, lh); g.restore();
-  return true;
+// Logos des photos : PassSport Santé (haut droite) et L'École promotrice de santé (haut gauche).
+// Par défaut les fichiers du dépôt (assets/) ; une image importée sur la tablette est prioritaire.
+const LOGOS = [
+  { id: 'main', key: 'jml.logo.v1', file: './assets/logo.png', corner: 'right', hMax: 0.17, wMax: 0.30, img: null, src: '' },
+  { id: 'ecole', key: 'jml.logo2.v1', file: './assets/logo-ecole.jpg', corner: 'left', hMax: 0.13, wMax: 0.44, img: null, src: '' },
+];
+let logoVersion = 0;
+const logoOk = (L) => !!L.img && L.img.naturalWidth > 0 && L.img.naturalHeight > 0;
+
+/** Dessine les logos dans les coins hauts de la photo, sur fond blanc arrondi. Renvoie le nombre de logos dessinés. */
+function drawLogosOn(g, W, H) {
+  if (!S.showLogo) return 0;
+  let n = 0;
+  for (const L of LOGOS) {
+    if (!logoOk(L)) continue;
+    const ratio = L.img.naturalWidth / L.img.naturalHeight;
+    let lh = H * L.hMax, lw = lh * ratio;
+    if (lw > W * L.wMax) { lw = W * L.wMax; lh = lw / ratio; }
+    const pad = Math.round(W * 0.01), y = pad * 2;
+    const x = L.corner === 'right' ? W - lw - pad * 3 : pad * 3;
+    g.save(); g.fillStyle = 'rgba(255,255,255,.93)'; roundRectPath(g, x - pad, y - pad, lw + 2 * pad, lh + 2 * pad, pad * 1.5); g.fill();
+    g.drawImage(L.img, x, y, lw, lh); g.restore();
+    n++;
+  }
+  return n;
 }
 
-// Logo : image importée (stockée dans le navigateur) ou, à défaut, assets/logo.png du dépôt.
-const K_LOGO = 'jml.logo.v1';
-let logoImg = null, logoVersion = 0, logoSrc = '';
-function loadLogo() {
-  let custom = null; try { custom = localStorage.getItem(K_LOGO); } catch { }
+function loadLogo(L) {
+  let custom = null; try { custom = localStorage.getItem(L.key); } catch { }
   const img = new Image();
-  img.onload = () => { logoImg = img; logoSrc = custom ? 'importé sur cet appareil' : 'assets/logo.png (dépôt)'; logoVersion++; refreshLogoUI(); };
-  img.onerror = () => { logoImg = null; logoSrc = ''; logoVersion++; refreshLogoUI(); };
-  img.src = custom || './assets/logo.png';
+  img.onload = () => { L.img = img; L.src = custom ? 'importé sur cet appareil' : L.file.replace('./', '') + ' (dépôt)'; logoVersion++; refreshLogoUI(); };
+  img.onerror = () => { L.img = null; L.src = ''; logoVersion++; refreshLogoUI(); };
+  img.src = custom || L.file;
 }
+function loadLogos() { LOGOS.forEach(loadLogo); }
 function refreshLogoUI() {
-  for (const id of ['#homeLogo', '#stageLogo', '#logoPreview']) { const el = $(id); if (logoImg) el.src = logoImg.src; else el.removeAttribute('src'); }
-  $('#logoPreview').classList.toggle('hidden', !logoImg);
-  setText($('#logoInfo'), logoImg ? `Logo : ${logoSrc}.` : 'Aucun logo : importez une image (PNG, JPEG, SVG) ou ajoutez assets/logo.png au dépôt.');
+  for (const L of LOGOS) {
+    const pv = document.querySelector(`[data-logo-preview="${L.id}"]`), home = $('#homeLogo-' + L.id);
+    for (const el of [pv, home]) { if (logoOk(L)) el.src = L.img.src; else el.removeAttribute('src'); }
+    pv.classList.toggle('hidden', !logoOk(L));
+    setText(document.querySelector(`[data-logo-info="${L.id}"]`), logoOk(L) ? `Source : ${L.src}.` : `Aucun logo (fichier ${L.file.replace('./', '')} absent).`);
+  }
+  const main = LOGOS[0]; if (logoOk(main)) $('#stageLogo').src = main.img.src;
   updateUI(true);
 }
-$('#logoFile').addEventListener('change', async (e) => {
-  const f = e.target.files[0]; if (!f) return;
+document.querySelectorAll('[data-logo-file]').forEach(inp => inp.addEventListener('change', async (e) => {
+  const L = LOGOS.find(x => x.id === inp.dataset.logoFile), f = e.target.files[0]; if (!f || !L) return;
   try {
     const url = URL.createObjectURL(f), img = new Image();
     await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('image illisible')); img.src = url; });
-    const w0 = img.naturalWidth || 800, h0 = img.naturalHeight || 800, k = Math.min(1, 800 / Math.max(w0, h0));
+    const w0 = img.naturalWidth || 800, h0 = img.naturalHeight || 800, k = Math.min(1, 900 / Math.max(w0, h0));
     const c = document.createElement('canvas'); c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
-    localStorage.setItem(K_LOGO, c.toDataURL('image/png'));
-    loadLogo(); flash('Logo importé.', true);
+    localStorage.setItem(L.key, c.toDataURL('image/png'));
+    loadLogo(L); flash('Logo importé.', true);
   } catch (err) { flash('Logo non importé : ' + (err.message || err)); }
   e.target.value = '';
-});
-$('#btnLogoClear').onclick = () => { try { localStorage.removeItem(K_LOGO); } catch { } loadLogo(); };
+}));
+document.querySelectorAll('[data-logo-clear]').forEach(b => b.addEventListener('click', () => {
+  const L = LOGOS.find(x => x.id === b.dataset.logoClear); if (!L) return;
+  try { localStorage.removeItem(L.key); } catch { } loadLogo(L);
+}));
 
 function dropPhotos(entries) {
   for (const e of entries) { if (e.photo?.url) URL.revokeObjectURL(e.photo.url); e.photo = null; e.apex = null; }
@@ -1430,9 +1463,8 @@ function updateUI(force = false) {
     $('#btnStart').disabled = !ok; setText($('#startSub'), sub);
     setText($('#homeFlash'), flashMsg && now < flashUntil ? flashMsg.txt : '');
   }
-  const showLogo = !!logoImg && S.showLogo;
-  $('#homeLogo').classList.toggle('hidden', !showLogo);
-  $('#stageLogo').classList.toggle('hidden', !(showLogo && screen === 'session' && !R && !edit && !detecting));
+  for (const L of LOGOS) $('#homeLogo-' + L.id).classList.toggle('hidden', !(S.showLogo && logoOk(L)));
+  $('#stageLogo').classList.toggle('hidden', !(S.showLogo && logoOk(LOGOS[0]) && screen === 'session' && !R && !edit && !detecting));
   updateBigState();
   renderSession();
   if (!$('#admin').classList.contains('hidden')) updateAdmin();
@@ -1753,9 +1785,9 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ================= Démarrage ================= */
-window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, detector, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, get logoImg() { return logoImg; }, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
+window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, detector, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, logos: LOGOS, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
 resizeCanvas();
-loadLogo();
+loadLogos();
 if (S.showWizard) openWizard();
 startCamera();
 if (S.mode === 'ai') loadModel();
