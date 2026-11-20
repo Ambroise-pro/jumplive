@@ -523,3 +523,55 @@ export class LongJumpDetector {
     return null;
   }
 }
+
+/* =====================================================================
+ * LISSAGE DU SUIVI (filtre « One Euro ») : supprime le tremblement des points
+ * quand la personne est immobile, en suivant sans retard les mouvements rapides.
+ * Utilisé pour l'affichage et la détection de l'immobilité ; les mesures du saut
+ * utilisent les points bruts (le lissage écrêterait le sommet).
+ * ===================================================================== */
+
+export class OneEuro {
+  constructor(minCutoff = 1, beta = 0.5, dCutoff = 1) { this.minCutoff = minCutoff; this.beta = beta; this.dCutoff = dCutoff; this.reset(); }
+  reset() { this.x = null; this.dx = 0; this.t = null; }
+  static alpha(dt, cutoff) { const tau = 1 / (2 * Math.PI * cutoff); return 1 / (1 + tau / dt); }
+  filter(x, t) {
+    if (!Number.isFinite(x)) return x;
+    if (this.x == null || this.t == null || t <= this.t) { this.x = x; this.t = t; this.dx = 0; return x; }
+    const dt = Math.min(0.5, t - this.t);
+    const dxRaw = (x - this.x) / dt;
+    this.dx = this.dx + OneEuro.alpha(dt, this.dCutoff) * (dxRaw - this.dx);
+    const cutoff = this.minCutoff + this.beta * Math.abs(this.dx);
+    this.x = this.x + OneEuro.alpha(dt, cutoff) * (x - this.x);
+    this.t = t;
+    return this.x;
+  }
+}
+
+/** Réglages du lissage (coordonnées normalisées 0..1, vitesses en unités d'image par seconde). */
+export const SMOOTHING = {
+  off: null,
+  light: { minCutoff: 3, beta: 1.5 },
+  medium: { minCutoff: 1.2, beta: 1 },
+  strong: { minCutoff: 0.5, beta: 0.6 },
+};
+
+/** Lisse une liste de poses MediaPipe (tableaux de 33 points normalisés), pose par pose. */
+export class PoseSmoother {
+  constructor(level = 'medium') { this.setLevel(level); }
+  setLevel(level) { this.level = level; this.cfg = level in SMOOTHING ? SMOOTHING[level] : SMOOTHING.medium; this.reset(); }   // « off » = null : pas de lissage
+  reset() { this.filters = []; this.count = 0; }
+  smooth(poses, tSec) {
+    if (!this.cfg || !poses) return poses;
+    if (poses.length !== this.count) { this.filters = []; this.count = poses.length; }   // personnes apparues / disparues
+    return poses.map((lms, i) => {
+      const F = this.filters[i] ??= lms.map(() => ({ x: new OneEuro(this.cfg.minCutoff, this.cfg.beta), y: new OneEuro(this.cfg.minCutoff, this.cfg.beta), v: null }));
+      return lms.map((p, j) => {
+        const f = F[j] ??= { x: new OneEuro(this.cfg.minCutoff, this.cfg.beta), y: new OneEuro(this.cfg.minCutoff, this.cfg.beta), v: null };
+        const v = p.visibility ?? 1;
+        f.v = f.v == null ? v : f.v + 0.35 * (v - f.v);   // confiance lissée : évite le clignotement « vu / pas vu »
+        return { ...p, x: f.x.filter(p.x, tSec), y: f.y.filter(p.y, tSec), visibility: f.v };
+      });
+    });
+  }
+}

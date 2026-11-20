@@ -130,6 +130,7 @@ MediaPipe Pose Landmarker (version 0.10.14, figée), exécuté dans le navigateu
 - Le **temps de vol** (`h = g·t²/8`) est affiché à titre indicatif seulement : à 20–30 analyses/s, il est trop imprécis pour servir de mesure.
 - Tous les seuils sont réglables dans *Paramètres → Analyse IA*.
 
+- **Lissage du suivi** : l'IA réestime les points du corps à chaque image, avec quelques pixels d'écart, et le squelette « tremble » même quand l'élève est immobile. Un filtre (« One Euro ») lisse ces tremblements sans retarder les mouvements rapides. Les points lissés servent à l'affichage et à la détection de l'immobilité ; **pendant le saut, ce sont les points bruts** qui sont utilisés, pour ne pas écrêter le sommet ni décaler la réception. Réglages dans *Paramètres → Analyse IA* : **Lissage du suivi** (aucun, léger, moyen par défaut, fort) et **Tolérance d'immobilité** (stricte, normale par défaut, souple). Si « Ne bougez plus » reste affiché alors que l'élève est immobile, passer le lissage à *Fort* ou la tolérance à *Souple*.
 La cadence réelle de l'IA dépend de l'appareil (affichée en bas à gauche). Aucune cadence n'est garantie.
 
 ## Confidentialité et hors-ligne
@@ -164,7 +165,7 @@ Puis, dans *Paramètres → Analyse IA* : Base MediaPipe = `./vendor/mediapipe`,
 ## Tests
 
 ```bash
-node --test tests/*.test.mjs                 # 70 tests : conversions, calibrations, détecteurs (détente et longueur), détection de feuille
+node --test tests/*.test.mjs                 # 78 tests : conversions, calibrations, détecteurs (détente et longueur), lissage, détection de feuille
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
 python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications : les 3 boutons via fausse caméra
 python3 tests/e2e_long.py /chemin/chrome          # 18 vérifications : saut en longueur (faux modèle, vue de profil simulée)

@@ -404,11 +404,15 @@
       <div id="aiInfo" class="muted"></div>
       <label class="f">Modèle<select data-s="model"><option value="lite">Lite (rapide)</option><option value="full">Full (plus précis)</option><option value="heavy">Heavy (lent)</option></select></label>
       <label class="f">Processeur<select data-s="delegate"><option value="GPU">GPU (repli CPU auto)</option><option value="CPU">CPU</option></select></label>
+      <label class="f">Lissage du suivi (tremblement des segments)<select data-s="smoothing">
+        <option value="off">Aucun</option><option value="light">Léger</option><option value="medium">Moyen</option><option value="strong">Fort</option></select></label>
+      <label class="f">Tolérance d’immobilité<select data-s="stillTol">
+        <option value="1">Stricte</option><option value="1.5">Normale</option><option value="2.5">Souple</option></select></label>
       <label class="f">Analyses IA max / s<input type="number" min="5" max="60" step="1" data-s="aiMaxFps"></label>
       <label class="f">Décollage : bassin ≥ (cm)<input type="number" min="1" max="15" step="0.5" data-d="takeoffHipCm"></label>
       <label class="f">Décollage : chaque pied ≥ (cm)<input type="number" min="0.5" max="10" step="0.5" data-d="takeoffFootCm"></label>
       <label class="f">Réception : pieds à moins de (cm)<input type="number" min="0.5" max="6" step="0.5" data-d="landingFootCm"></label>
-      <label class="f">Immobilité : écart-type max (cm)<input type="number" min="0.3" max="4" step="0.1" data-d="stableMaxStdCm"></label>
+      <label class="f">Immobilité : écart-type de base (cm, × tolérance)<input type="number" min="0.3" max="4" step="0.1" data-d="stableMaxStdCm"></label>
       <label class="f">Durée d’immobilité (ms)<input type="number" min="300" max="3000" step="50" data-d="stableWindowMs"></label>
       <label class="f">Délai avant saut suivant (ms)<input type="number" min="500" max="10000" step="100" data-d="resultHoldMs"></label>
       <label class="c"><input type="checkbox" data-s="countUncertain"> Compter les mesures incertaines dans le meilleur saut</label>
@@ -481,7 +485,7 @@
 import {
   A4_CM, cmPerPixel, detenteCm, computeFit, zoomFit, nativeToView, viewToNative,
   validateCalibration, extractPose, inZone, JumpDetector, STATES, DEFAULTS,
-  longAxis, validateLongCalibration, LongJumpDetector,
+  longAxis, validateLongCalibration, LongJumpDetector, LONG_DEFAULTS, PoseSmoother,
 } from './core.js';
 import { detectWhiteSheet, detectMarkers, detectSheetOpenCV, combineDetections } from './a4detect.js';
 
@@ -506,7 +510,8 @@ const DEF = {
   bufferSec: 4, bufferWidth: 480, bufferFps: 30,
   showCal: true, showSkeleton: true, showHud: true, distanceNote: '',
   showWizard: true, detectDelaySec: 5, countUncertain: false, photoOnResult: true, allowShare: true, showLogo: true, keepPhotos: true,
-  measureMode: 'vertical', longD1: 100, longD2: 200, opencvUrl: '', markerDistCm: 20,
+  measureMode: 'vertical', longD1: 100, longD2: 200,
+  smoothing: 'medium', stillTol: 1.5, opencvUrl: '', markerDistCm: 20,
   det: Object.fromEntries(DET_KEYS.map(k => [k, DEFAULTS[k]])),
 };
 const saved = store.get(K.settings, {});
@@ -529,6 +534,15 @@ let calStatus = { valid: false, reasons: ['Calibration manquante'], warnings: []
 let zoneActive = null;
 let lowLight = false, lastLumaT = 0;
 const detectorV = new JumpDetector(S.det), detectorL = new LongJumpDetector();
+const smoother = new PoseSmoother(S.smoothing);
+/** Lissage et tolérance d'immobilité appliqués aux deux détecteurs. */
+function applyTuning() {
+  smoother.setLevel(S.smoothing);
+  const k = Number(S.stillTol) || 1.5;
+  detectorV.setParams({ stableMaxStdCm: S.det.stableMaxStdCm * k, stableMaxRangeCm: DEFAULTS.stableMaxRangeCm * k });
+  detectorL.setParams({ stableMaxStdCm: LONG_DEFAULTS.stableMaxStdCm * k });
+}
+applyTuning();
 const isLong = () => S.measureMode === 'long';
 let detector = isLong() ? detectorL : detectorV;
 let landmarker = null, aiState = 'idle', aiErr = '', aiDelegate = '', aiBusy = false, lastAiT = 0;
@@ -587,7 +601,7 @@ function stopCamera() {
 }
 
 async function startCamera() {
-  stopCamera();
+  stopCamera(); smoother.reset();
   const gen = camGen;
   camError = null;
   if (!window.isSecureContext) { camError = 'Caméra impossible : ouvrez l’application en HTTPS (ou sur localhost).'; updateUI(true); return; }
@@ -803,10 +817,13 @@ function runAI(t) {
   perf.aiT.push(t);
   aiBusy = false;
   const W = vw(), H = vh(), opt = { minHipVis: S.minHipVis, minFootVis: S.minFootVis };
-  lastPoses = (res?.landmarks || []).map(l => ({ lms: l, ...extractPose(l, W, H, opt) }));
+  const raw = res?.landmarks || [];
+  // points lissés : affichage et détection de l'immobilité ; points bruts pendant le saut (mesure non écrêtée)
+  lastPoses = smoother.smooth(raw, t / 1000).map(l => ({ lms: l, ...extractPose(l, W, H, opt) }));
+  const people = detector.state === STATES.JUMPING ? raw.map(l => extractPose(l, W, H, opt)) : lastPoses;
   const inside = lastPoses.filter(p => p.hipOk && inZone(p.hip, zoneActive));
   if (inside.length === 1) { poseLog.push({ t, hipY: inside[0].hip.y }); while (poseLog.length && t - poseLog[0].t > 10000) poseLog.shift(); }
-  const ev = detector.update({ t, people: lastPoses });
+  const ev = detector.update({ t, people });
   if (detector.state !== prevDetState) { if (detector.state === STATES.READY) beep(740, 120); prevDetState = detector.state; }
   // nouvelle position la plus haute pendant le saut : on garde l'image analysée (pleine résolution)
   if (detector.state === STATES.JUMPING && (isLong() ? detector.jump?.landT === t : detector.jump?.apexT === t)) grabApex(t);
@@ -1946,7 +1963,7 @@ function syncInputs() {
   });
   document.querySelectorAll('[data-d]').forEach(el => { el.value = S.det[el.dataset.d]; });
 }
-const NUM_S = ['longD1', 'longD2', 'detectDelaySec', 'markerDistCm', 'aiMaxFps', 'minHipVis', 'minFootVis', 'bufferSec', 'bufferWidth', 'bufferFps'];
+const NUM_S = ['stillTol', 'longD1', 'longD2', 'detectDelaySec', 'markerDistCm', 'aiMaxFps', 'minHipVis', 'minFootVis', 'bufferSec', 'bufferWidth', 'bufferFps'];
 document.querySelectorAll('[data-s]').forEach(el => el.addEventListener('change', () => {
   const k = el.dataset.s;
   let v = el.type === 'checkbox' ? el.checked : el.value;
@@ -1955,13 +1972,14 @@ document.querySelectorAll('[data-s]').forEach(el => el.addEventListener('change'
   if (['bufferSec', 'bufferWidth', 'bufferFps'].includes(k)) clearBuffer();
   if (k === 'mpBase' && !v) { S.mpBase = MP_DEFAULT; el.value = MP_DEFAULT; saveS(); }
   if ((k === 'longD1' || k === 'longD2') && edit) updateEditText();
+  if (k === 'smoothing' || k === 'stillTol') applyTuning();
   dirty = true; updateUI(true);
 }));
 document.querySelectorAll('[data-d]').forEach(el => el.addEventListener('change', () => {
   const v = Number(el.value); if (!Number.isFinite(v)) return;
-  S.det[el.dataset.d] = v; saveS(); detectorV.setParams({ [el.dataset.d]: v });
+  S.det[el.dataset.d] = v; saveS(); detectorV.setParams({ [el.dataset.d]: v }); applyTuning();
 }));
-$('#btnDetDefaults').onclick = () => { S.det = { ...DEF.det }; S.minHipVis = DEF.minHipVis; S.minFootVis = DEF.minFootVis; saveS(); detectorV.setParams(S.det); syncInputs(); };
+$('#btnDetDefaults').onclick = () => { S.det = { ...DEF.det }; S.minHipVis = DEF.minHipVis; S.minFootVis = DEF.minFootVis; S.smoothing = DEF.smoothing; S.stillTol = DEF.stillTol; saveS(); detectorV.setParams(S.det); applyTuning(); syncInputs(); };
 $('#btnCamApply').onclick = () => { if (R) closeReview(); S.deviceLabel = ''; saveS(); startCamera(); };
 $('#btnAiReload').onclick = () => { landmarker = null; aiState = 'idle'; loadModel(); };
 $('#btnCal').onclick = () => runCalibration('manual', false);
