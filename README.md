@@ -61,8 +61,8 @@ Une limite commune aux trois : la détection ne vérifie **pas** que la feuille 
 
 ### Saut en longueur : installation
 - **Tablette de profil**, perpendiculaire au couloir, à environ 4–5 m et à hauteur de hanche, pour voir la ligne d'appel et toute la zone de réception (jusqu'à environ 3 m) avec de la marge : un élève qui sort du cadre à la réception voit son saut écarté.
-- **Au sol**, marque la **ligne d'appel** et deux repères à distance connue, par défaut **1 m et 2 m** (modifiables), avec un ruban ou du scotch bien visible.
-- **Calibration** : *Paramètres → Calibration → Calibrer la longueur (photo)*, ou l'écran Calibration au démarrage quand le mode longueur est choisi. Après le décompte, une photo du couloir vide est prise ; tu poses les 3 repères (ligne d'appel en bleu, puis 1 m, puis 2 m) **au sol**, à l'aide de la loupe. Trois repères permettent de **corriger la perspective** si la tablette n'est pas parfaitement perpendiculaire : un avertissement s'affiche alors.
+- **Au sol**, pose le **décamètre** le long du couloir, le zéro sur la **ligne d'appel**.
+- **Calibration** sur l'**image en direct** : *Paramètres → Calibration → Calibrer la longueur*, ou l'écran Calibration au démarrage quand le mode longueur est choisi. Les 3 repères apparaissent sur le direct : aligne-les sur le décamètre, d'abord le zéro (ligne d'appel, en bleu), puis deux graduations, par défaut **1 m et 2 m**. Ces distances se règlent dans la même barre, par exemple 1 m et 3 m pour couvrir toute la zone de réception. Une loupe aide au placement, et **⏸ Figer l'image** gèle le direct si quelqu'un passe devant (**▶ Revenir au direct** ensuite). Trois repères permettent de **corriger la perspective** si la tablette n'est pas parfaitement perpendiculaire : un avertissement s'affiche alors.
 - À l'écran, une **règle au sol** (ligne d'appel, graduations tous les 50 cm) permet de vérifier la calibration d'un coup d'œil.
 
 ### Saut en longueur : mesure
@@ -157,7 +157,7 @@ Puis, dans *Paramètres → Analyse IA* : Base MediaPipe = `./vendor/mediapipe`,
 node --test tests/*.test.mjs                 # 70 tests : conversions, calibrations, détecteurs (détente et longueur), détection de feuille
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
 python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications : les 3 boutons via fausse caméra
-python3 tests/e2e_long.py /chemin/chrome          # 14 vérifications : saut en longueur (faux modèle, vue de profil simulée)
+python3 tests/e2e_long.py /chemin/chrome          # 18 vérifications : saut en longueur (faux modèle, vue de profil simulée)
 pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 48 vérifications de bout en bout
 ```
 

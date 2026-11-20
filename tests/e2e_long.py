@@ -40,11 +40,22 @@ try:
 
         # calibration au sol sur photo : ligne d'appel + 1 m + 2 m (3 px/cm)
         k = 3.0; p0x = round(W * 0.2); gy = round(H * 0.86)
-        long_press(); page.click('#btnCalLong'); page.wait_for_function('JML.edit && JML.edit.photo && JML.edit.kind === "calLong"', timeout=15000)
+        long_press(); page.click('#btnCalLong'); page.wait_for_function('JML.edit && JML.edit.kind === "calLong"', timeout=15000)
+        f1 = ev('document.querySelector("#view").toDataURL().length'); page.wait_for_timeout(700)
+        live = ev('document.querySelector("#view").toDataURL().length') != f1
+        check('calibration longueur sur l’image en direct (pas de photo)', ev('JML.edit.photo') is None and live and 'direct' in page.inner_text('#editTxt'))
+        page.click('#editFreeze'); page.wait_for_timeout(300)
+        f2 = ev('document.querySelector("#view").toDataURL().length'); page.wait_for_timeout(700)
+        check('« Figer l’image » gèle le direct', ev('!!JML.edit.photo') and ev('document.querySelector("#view").toDataURL().length') == f2)
+        page.click('#editFreeze'); page.wait_for_timeout(200)
+        check('retour au direct', ev('JML.edit.photo') is None)
+        page.fill('#editLong input[data-s="longD2"]', '250'); page.dispatch_event('#editLong input[data-s="longD2"]', 'change')
+        check('distance d’un repère modifiable dans la barre', ev('JML.S.longD2') == 250 and '2,50 m' in page.inner_text('#editTxt'))
+        page.fill('#editLong input[data-s="longD2"]', '200'); page.dispatch_event('#editLong input[data-s="longD2"]', 'change')
         e = ev('JML.edit')
         for i, x in enumerate([p0x, p0x + 100 * k, p0x + 200 * k]):
             drag_native(e[f'p{i}'], {'x': x, 'y': gy})
-        page.screenshot(path=f'{OUT}/02_calibration_sol.png')
+        page.screenshot(path=f'{OUT}/02_calibration_sol_direct.png')
         page.click('#editSave'); page.wait_for_timeout(300)
         cl = ev('JML.calLong')
         ok = cl and abs(cl['p1']['x'] - cl['p0']['x'] - 300) < 4 and abs(cl['p2']['x'] - cl['p0']['x'] - 600) < 4 and cl['d1'] == 100 and cl['d2'] == 200
