@@ -55,6 +55,26 @@ L'écran de démarrage propose trois boutons, plus *Repères à la main*. Après
 
 Une limite commune aux trois : la détection ne vérifie **pas** que la feuille est au même plan de profondeur que le bassin. La feuille doit être **retirée avant de sauter**, puisqu'elle est à l'emplacement du saut ; elle ne peut donc pas servir à détecter un déplacement de la caméra pendant la séance.
 
+## Deux types de mesure
+
+À l'accueil, choisis **⬆ Détente verticale** ou **➡ Saut en longueur** (pieds joints, sans élan). Chaque mode a **sa propre calibration et sa propre zone de saut**, conservées indépendamment.
+
+### Saut en longueur : installation
+- **Tablette de profil**, perpendiculaire au couloir, à environ 4–5 m et à hauteur de hanche, pour voir la ligne d'appel et toute la zone de réception (jusqu'à environ 3 m) avec de la marge : un élève qui sort du cadre à la réception voit son saut écarté.
+- **Au sol**, marque la **ligne d'appel** et deux repères à distance connue, par défaut **1 m et 2 m** (modifiables), avec un ruban ou du scotch bien visible.
+- **Calibration** : *Paramètres → Calibration → Calibrer la longueur (photo)*, ou l'écran Calibration au démarrage quand le mode longueur est choisi. Après le décompte, une photo du couloir vide est prise ; tu poses les 3 repères (ligne d'appel en bleu, puis 1 m, puis 2 m) **au sol**, à l'aide de la loupe. Trois repères permettent de **corriger la perspective** si la tablette n'est pas parfaitement perpendiculaire : un avertissement s'affiche alors.
+- À l'écran, une **règle au sol** (ligne d'appel, graduations tous les 50 cm) permet de vérifier la calibration d'un coup d'œil.
+
+### Saut en longueur : mesure
+- Consignes : « Placez-vous derrière la ligne d'appel » → « Ne bougez plus… » → **« VOUS POUVEZ SAUTER ! »**. « Reculez » s'affiche si les pointes dépassent la ligne, « Avancez » si l'élève est à plus de 60 cm derrière.
+- **Décollage** : les deux pieds quittent le sol. **Réception** : les deux pieds reviennent au sol. Pendant 0,3 s après le contact, l'application retient le **talon le plus proche de la ligne d'appel**.
+- **Résultat** = distance de la ligne d'appel à ce talon (**règle officielle**), affichée en mètres. La distance depuis les pointes de pieds au départ est aussi indiquée et exportée.
+- **Mesure incertaine** si une **main se pose derrière les talons** (chute en arrière), si le suivi est peu fiable ou si l'IA analyse trop peu d'images par seconde. Saut écarté si le pied mord la ligne, en cas de perte de suivi, de sortie du cadre ou de plusieurs personnes.
+- **Photo de la réception** : ligne d'appel, ligne de réception et flèche avec la distance.
+- **Vérification** (outils professeur) : choisir l'image de réception, glisser la ligne verticale sur le talon (◀ ▶ pour ajuster au pixel près).
+
+**Limites propres à la longueur** : de profil, le pied éloigné de la caméra est en partie caché ; la détection du talon par l'IA fluctue d'environ 1 à 3 cm ; le flou de bouger à la réception peut gêner (bonne lumière nécessaire) ; la distorsion grand-angle aux bords de l'image n'est corrigée que si les repères couvrent la zone de réception. À valider contre un décamètre avant tout usage évaluatif.
+
 ## Utilisation en classe (élèves autonomes)
 
 1. **Accueil** : un grand bouton **« Commencer les mesures »**. Il reste grisé tant que la calibration n'est pas valide, et le motif est affiché dessous.
@@ -134,9 +154,10 @@ Puis, dans *Paramètres → Analyse IA* : Base MediaPipe = `./vendor/mediapipe`,
 ## Tests
 
 ```bash
-node --test tests/*.test.mjs                 # 65 tests : conversions, repères, calibration, détecteur, détection de feuille
+node --test tests/*.test.mjs                 # 70 tests : conversions, calibrations, détecteurs (détente et longueur), détection de feuille
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
-python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications : les 3 boutons via fausse caméra
+python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications
+python3 tests/e2e_long.py /chemin/chrome          # 14 vérifications : saut en longueur (faux modèle, vue de profil simulée) : les 3 boutons via fausse caméra
 pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 48 vérifications de bout en bout
 ```
 

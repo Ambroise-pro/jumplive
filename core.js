@@ -5,7 +5,7 @@
 export const A4_CM = 29.7;
 
 export const LM = {
-  L_SHOULDER: 11, R_SHOULDER: 12, L_HIP: 23, R_HIP: 24, L_KNEE: 25, R_KNEE: 26,
+  L_SHOULDER: 11, R_SHOULDER: 12, L_WRIST: 15, R_WRIST: 16, L_HIP: 23, R_HIP: 24, L_KNEE: 25, R_KNEE: 26,
   L_ANKLE: 27, R_ANKLE: 28, L_HEEL: 29, R_HEEL: 30, L_TOE: 31, R_TOE: 32,
 };
 
@@ -76,11 +76,9 @@ export function std(arr) {
  * @param ctx { deviceId, videoWidth, videoHeight, zoom }
  * @returns { valid, reasons: string[], warnings: string[] }
  */
-export function validateCalibration(cal, ctx) {
-  const reasons = [], warnings = [];
-  if (!cal || !cal.p1 || !cal.p2 || !(cal.cmPerPx > 0)) {
-    return { valid: false, reasons: ['Calibration manquante'], warnings };
-  }
+/** Raisons d'invalidité liées au contexte caméra (résolution, rotation, caméra, zoom). */
+export function contextReasons(cal, ctx) {
+  const reasons = [];
   if (ctx) {
     if (cal.videoWidth && ctx.videoWidth) {
       const swapped = cal.videoWidth === ctx.videoHeight && cal.videoHeight === ctx.videoWidth && cal.videoWidth !== cal.videoHeight;
@@ -91,6 +89,15 @@ export function validateCalibration(cal, ctx) {
     if (cal.deviceId && ctx.deviceId && cal.deviceId !== ctx.deviceId) reasons.push('Caméra différente de celle de la calibration');
     if (cal.zoom != null && ctx.zoom != null && Math.abs(cal.zoom - ctx.zoom) > 0.01) reasons.push('Zoom de la caméra modifié');
   }
+  return reasons;
+}
+
+export function validateCalibration(cal, ctx) {
+  const warnings = [];
+  if (!cal || !cal.p1 || !cal.p2 || !(cal.cmPerPx > 0)) {
+    return { valid: false, reasons: ['Calibration manquante'], warnings };
+  }
+  const reasons = contextReasons(cal, ctx);
   const hPx = Math.hypot(cal.p2.x - cal.p1.x, cal.p2.y - cal.p1.y);
   if (Math.abs(cmPerPixel(cal.p1, cal.p2, cal.refCm ?? A4_CM) - cal.cmPerPx) > 1e-6) reasons.push('Calibration incohérente');
   if (cal.cmPerPx < 0.02 || cal.cmPerPx > 2) reasons.push('Échelle invraisemblable');
@@ -115,13 +122,15 @@ export function extractPose(lms, W, H, opt = {}) {
   const hip = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2, v: Math.min(lh.v, rh.v) };
   const foot = (heelI, toeI, ankleI) => {
     const he = g(heelI), to = g(toeI), an = g(ankleI);
-    return { y: Math.max(he.y, to.y), x: (he.x + to.x) / 2, v: Math.min(he.v, to.v, an.v), ankleY: an.y };
+    return { y: Math.max(he.y, to.y), x: (he.x + to.x) / 2, v: Math.min(he.v, to.v, an.v), ankleY: an.y,
+      heel: { x: he.x, y: he.y }, toe: { x: to.x, y: to.y } };
   };
   const footL = foot(LM.L_HEEL, LM.L_TOE, LM.L_ANKLE), footR = foot(LM.R_HEEL, LM.R_TOE, LM.R_ANKLE);
   const pts = [lh, rh, footL, footR];
   const inFrame = pts.every(p => p.x >= 0 && p.x <= W && p.y >= 0 && p.y <= H * 0.995);
+  const wl = g(LM.L_WRIST), wr = g(LM.R_WRIST);
   return {
-    hip, footL, footR, inFrame,
+    hip, footL, footR, inFrame, wrists: [wl, wr],
     hipOk: hip.v >= minHipVis && Number.isFinite(hip.y),
     feetOk: footL.v >= minFootVis && footR.v >= minFootVis,
     conf: Math.min(hip.v, footL.v, footR.v),
@@ -292,7 +301,7 @@ export class JumpDetector {
           if (J.lostFrames > 1) issues.push('images perdues pendant le vol');
           if (this.ref.sdCm > P.stableMaxStdCm * 0.8) issues.push('référence peu stable');
           const res = {
-            type: 'result', detenteCm: d, flightMs, flightCm: flightHeightCm(flightMs),
+            type: 'result', mode: 'vertical', valueCm: d, photoT: J.apexT, detenteCm: d, flightMs, flightCm: flightHeightCm(flightMs),
             refY: this.ref.hipY, apexY: J.apexY, apexX: J.apexX, refT: this.ref.t1, takeoffT: J.takeoffT, apexT: J.apexT, landT: t,
             avgVis, aiFps, uncertain: issues.length > 0, issues,
           };
@@ -317,5 +326,191 @@ export class JumpDetector {
   _toWaiting(t, msg) {
     this.window = []; this.ref = null; this.jump = null; this.hipHist = []; this.footHist = [];
     this._set(STATES.WAITING, t, msg || 'Placez-vous dans la zone');
+  }
+}
+
+
+/* =====================================================================
+ * SAUT EN LONGUEUR (vue de profil)
+ * Étalonnage au sol : p0 = ligne d'appel, p1 et p2 = repères à d1 et d2 cm.
+ * Position le long du couloir : projection sur la droite p0→p2, puis homographie 1D
+ * X = a·s / (c·s + 1) (corrige la perspective si la caméra n'est pas perpendiculaire).
+ * ===================================================================== */
+
+export function longAxis(cal) {
+  if (!cal?.p0 || !cal?.p1 || !cal?.p2 || !(cal.d1 > 0) || !(cal.d2 > cal.d1)) return null;
+  const ux = cal.p2.x - cal.p0.x, uy = cal.p2.y - cal.p0.y, L = Math.hypot(ux, uy);
+  if (L < 20) return null;
+  const u = { x: ux / L, y: uy / L };
+  const s = (pt) => (pt.x - cal.p0.x) * u.x + (pt.y - cal.p0.y) * u.y;
+  const s1 = s(cal.p1), s2 = s(cal.p2), X1 = cal.d1, X2 = cal.d2;
+  if (!(s1 > 0 && s2 > s1)) return null;
+  const det = s1 * s2 * (X1 - X2);
+  const a = X1 * X2 * (s1 - s2) / det, c = (s1 * X2 - s2 * X1) / det;
+  const toCm = (pt) => { const v = s(pt); return a * v / (c * v + 1); };
+  const cmPerPxAt = (pt) => { const v = s(pt), d = c * v + 1; return a / (d * d); };
+  // y du sol (droite p0→p2) pour une abscisse donnée
+  const groundY = (x) => Math.abs(ux) < 1e-6 ? cal.p0.y : cal.p0.y + (x - cal.p0.x) * uy / ux;
+  // point image de la droite au sol correspondant à X cm (inverse de l'homographie)
+  const fromCm = (X) => { const v = X / (a - c * X); return { x: cal.p0.x + v * u.x, y: cal.p0.y + v * u.y }; };
+  return { u, s, a, c, toCm, cmPerPxAt, groundY, fromCm, L };
+}
+
+export function validateLongCalibration(cal, ctx) {
+  const warnings = [];
+  if (!cal?.p0) return { valid: false, reasons: ['Calibration longueur manquante'], warnings };
+  const reasons = contextReasons(cal, ctx);
+  const ax = longAxis(cal);
+  if (!ax) { reasons.push('Repères au sol incohérents (ordre ou distances)'); return { valid: false, reasons, warnings }; }
+  // l'homographie doit rester définie de -1 m à 2,5 × d2
+  const sMin = -ax.L, sMax = ax.L * 2.5;
+  if (ax.c * sMin + 1 <= 0.05 || ax.c * sMax + 1 <= 0.05 || ax.a <= 0) reasons.push('Perspective trop forte : placez la tablette de profil');
+  const k0 = ax.cmPerPxAt(cal.p0), k2 = ax.cmPerPxAt(cal.p2);
+  if (reasons.length === 0) {
+    const ratio = Math.max(k0, k2) / Math.min(k0, k2);
+    if (ratio > 1.25) warnings.push(`Tablette pas perpendiculaire au couloir (échelle variant de ${Math.round((ratio - 1) * 100)} %) : perspective corrigée, mais précision réduite`);
+    if (100 / k0 < 80) warnings.push(`Repères petits à l’image (1 m ≈ ${Math.round(100 / k0)} px) : rapprochez la tablette ou augmentez la résolution`);
+    const p1x = cal.p1.x - cal.p0.x, p1y = cal.p1.y - cal.p0.y, off = Math.abs(p1x * ax.u.y - p1y * ax.u.x);
+    if (off > 6) warnings.push('Les trois repères ne sont pas alignés : vérifiez leur position');
+  }
+  return { valid: reasons.length === 0, reasons, warnings };
+}
+
+export const LONG_DEFAULTS = {
+  stableWindowMs: 700, stableMaxStdCm: 1.5,
+  foulCm: 1,            // pointes au-delà de la ligne = mordu
+  maxBehindCm: 60,      // trop loin derrière la ligne
+  takeoffFootCm: 3,     // chaque pied levé de x cm au-dessus du sol = décollage
+  landingFootCm: 2.5,   // pieds revenus au sol
+  minFlightMs: 150, maxFlightMs: 1200,
+  landingWindowMs: 300, // collecte du talon le plus en arrière après le contact
+  handCheckMs: 900,     // surveillance d'une main posée en arrière
+  maxLostMs: 200, resultHoldMs: 3000,
+  minDistCm: 30, maxDistCm: 400,
+  minAiFps: 12, minQualityVis: 0.7,
+};
+
+export class LongJumpDetector {
+  constructor(params = {}) {
+    this.p = { ...LONG_DEFAULTS, ...params };
+    this.axis = null; this.zone = null;
+    this.reset();
+  }
+  setParams(p) { Object.assign(this.p, p); }
+  setCalibration(cal, valid) { this.axis = valid ? longAxis(cal) : null; }
+  setZone(zone) { this.zone = zone || null; }
+  reset() {
+    this.state = STATES.WAITING; this.message = 'Placez-vous derrière la ligne d’appel';
+    this.window = []; this.ref = null; this.jump = null; this.lastSeen = -Infinity; this.stateSince = 0;
+    this.lastResult = null; this.tiptoe = false;
+  }
+  _set(state, t, msg) { if (state !== this.state) { this.state = state; this.stateSince = t; } if (msg) this.message = msg; }
+  _toWaiting(t, msg) { this.window = []; this.ref = null; this.jump = null; this._set(STATES.WAITING, t, msg || 'Placez-vous derrière la ligne d’appel'); }
+  _reject(t, reason) {
+    const ev = { type: 'rejected', reason, refT: this.ref?.t1, takeoffT: this.jump?.takeoffT, t };
+    this.lastResult = ev; this.jump = null; this._set(STATES.RESULT, t, 'Mesure écartée : ' + reason);
+    return ev;
+  }
+  /** Mesures utiles d'une pose : pointe la plus avancée, talon le plus en arrière, élévation des pieds (cm). */
+  _measure(person) {
+    const A = this.axis, toCm = A.toCm;
+    const feet = [person.footL, person.footR];
+    const toeF = Math.max(...feet.map(f => toCm(f.toe)));
+    const heelB = Math.min(...feet.map(f => Math.min(toCm(f.heel), toCm(f.toe))));
+    const lift = feet.map(f => (A.groundY(f.x) - f.y) * A.cmPerPxAt({ x: f.x, y: A.groundY(f.x) }));
+    const heelPt = feet.map(f => [f.heel, f.toe]).flat().reduce((m, q) => toCm(q) < toCm(m) ? q : m);
+    return { toeF, heelB, lift, heelPt };
+  }
+  update(frame) {
+    const { t } = frame, P = this.p;
+    if (this.state === STATES.RESULT) {
+      if (t - this.stateSince < P.resultHoldMs) return null;
+      this._toWaiting(t);
+    }
+    if (!this.axis) { this._toWaiting(t, 'Calibration longueur manquante ou invalide'); return null; }
+    const inside = frame.people.filter(p => p.hipOk && inZone(p.hip, this.zone));
+    const multiple = inside.length > 1, person = inside.length === 1 ? inside[0] : null;
+    if (person) this.lastSeen = t;
+    const lost = !person && (t - this.lastSeen > P.maxLostMs);
+    const m = person && person.feetOk ? this._measure(person) : null;
+    const onGround = m && m.lift.every(l => l < P.landingFootCm);
+
+    switch (this.state) {
+      case STATES.WAITING:
+      case STATES.STABILIZING: {
+        if (multiple) { this._toWaiting(t, 'Une seule personne dans la zone'); return null; }
+        if (lost) { this._toWaiting(t); return null; }
+        if (!person) return null;
+        if (!person.inFrame) { this._toWaiting(t, 'Tout le corps doit être visible, pieds compris'); return null; }
+        if (!m) { this._toWaiting(t, 'Pieds mal visibles : ajustez la caméra ou l’éclairage'); return null; }
+        if (m.toeF > P.foulCm) { this._toWaiting(t, 'Reculez : les pieds doivent être derrière la ligne'); return null; }
+        if (m.toeF < -P.maxBehindCm) { this._toWaiting(t, 'Avancez jusqu’à la ligne d’appel'); return null; }
+        if (!onGround) { this.window = []; this._set(STATES.STABILIZING, t, 'Pieds joints au sol, ne bougez plus…'); return null; }
+        if (this.state === STATES.WAITING) { this.window = []; this._set(STATES.STABILIZING, t, 'Ne bougez plus…'); }
+        this.window.push({ t, toeF: m.toeF, hipY: person.hip.y });
+        while (this.window.length && t - this.window[0].t > P.stableWindowMs) this.window.shift();
+        const span = this.window.length ? t - this.window[0].t : 0;
+        if (span >= P.stableWindowMs * 0.85 && this.window.length >= 5 && std(this.window.map(w => w.toeF)) <= P.stableMaxStdCm) {
+          this.ref = { toeStart: median(this.window.map(w => w.toeF)), t1: t };
+          this._set(STATES.READY, t, 'Prêt — sautez !');
+        }
+        return null;
+      }
+      case STATES.READY: {
+        if (multiple) { this._toWaiting(t, 'Une seule personne dans la zone'); return null; }
+        if (lost) { this._toWaiting(t); return null; }
+        if (!person || !m) return null;
+        if (m.lift.every(l => l >= P.takeoffFootCm)) {
+          this.jump = { takeoffT: t, samples: 1, visSum: person.conf, lostFrames: 0, landT: null, heels: [], heelPt: null, hand: false };
+          this._set(STATES.JUMPING, t, 'Saut en cours…');
+          return null;
+        }
+        if (onGround && m.toeF > P.foulCm) { this._toWaiting(t, 'Reculez : les pieds doivent être derrière la ligne'); return null; }
+        if (onGround && Math.abs(m.toeF - this.ref.toeStart) > 10) { this.window = []; this._set(STATES.STABILIZING, t, 'Ne bougez plus…'); }
+        return null;
+      }
+      case STATES.JUMPING: {
+        const J = this.jump;
+        if (multiple) return this._reject(t, 'Plusieurs personnes dans la zone');
+        if (!person || !m) { if (lost) return this._reject(t, 'Perte de suivi pendant le saut'); J.lostFrames++; return null; }
+        if (!person.inFrame) return this._reject(t, 'Sortie du cadre : élargissez le champ de la caméra');
+        J.samples++; J.visSum += person.conf;
+        if (!J.landT) {
+          if (t - J.takeoffT > P.maxFlightMs) return this._reject(t, 'Durée de vol invraisemblable');
+          if (onGround && t - J.takeoffT >= P.minFlightMs && m.heelB > this.ref.toeStart + 15) { J.landT = t; }
+          else return null;
+        }
+        // après le contact : talon le plus en arrière, main posée derrière ?
+        if (t - J.landT <= P.landingWindowMs) {
+          J.heels.push(m.heelB);
+          if (!J.heelPt || m.heelB <= Math.min(...J.heels)) J.heelPt = m.heelPt;
+        }
+        const landCm = Math.min(...J.heels);
+        for (const w of person.wrists || []) {
+          if (!(w.v >= 0.5)) continue;
+          const gy = this.axis.groundY(w.x), k = this.axis.cmPerPxAt({ x: w.x, y: gy });
+          if ((gy - w.y) * k < 8 && this.axis.toCm({ x: w.x, y: gy }) < landCm - 5) J.hand = true;
+        }
+        if (t - J.landT < Math.max(P.landingWindowMs, P.handCheckMs)) return null;
+        const d = landCm;
+        if (d < P.minDistCm) return this._reject(t, 'Saut trop court');
+        if (d > P.maxDistCm) return this._reject(t, 'Valeur aberrante');
+        const flightMs = J.landT - J.takeoffT, aiFps = (J.samples - 1) / ((t - J.takeoffT) / 1000), avgVis = J.visSum / J.samples;
+        const issues = [];
+        if (avgVis < P.minQualityVis) issues.push('confiance du suivi faible');
+        if (aiFps < P.minAiFps) issues.push(`cadence IA faible (${aiFps.toFixed(0)} img/s)`);
+        if (J.lostFrames > 1) issues.push('images perdues');
+        if (J.hand) issues.push('main posée derrière les talons ?');
+        const res = {
+          type: 'result', mode: 'long', valueCm: d, distanceCm: d, fromToesCm: d - this.ref.toeStart, toeStartCm: this.ref.toeStart,
+          flightMs, refT: this.ref.t1, takeoffT: J.takeoffT, landT: J.landT, photoT: J.landT,
+          landPt: J.heelPt, avgVis, aiFps, uncertain: issues.length > 0, issues,
+        };
+        this.lastResult = res;
+        this._set(STATES.RESULT, t, issues.length ? 'Mesure incertaine — vérifiez' : 'Mesure terminée');
+        return res;
+      }
+    }
+    return null;
   }
 }

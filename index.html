@@ -111,6 +111,9 @@
   .startbtn .big { font-size: clamp(44px, 8vw, 120px); font-weight: 800; line-height: 1.05; }
   .startbtn .sub { font-size: clamp(16px, 2.2vw, 28px); font-weight: 600; min-height: 1.2em; }
   .startbtn:disabled { opacity: 1; background: #1f2937; color: #94a3b8; }
+  .modesel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modesel button { min-height: 76px; font-size: clamp(18px, 2.6vw, 30px); border-radius: 20px; }
+  .modesel button.on { background: var(--blue); color: #04121c; border-color: transparent; }
   #homeFlash { min-height: 1.3em; text-align: center; color: var(--amber); font-weight: 600; }
   /* Consigne géante sur l'image */
   .bigstate { position: absolute; left: 12px; right: 12px; top: 12px; margin: 0 auto; width: fit-content; z-index: 4;
@@ -246,11 +249,11 @@
     <div id="msg" class="msg">Démarrage de la caméra…</div>
     <div id="seriesNo" class="seriesno hidden"></div>
     <div class="sublbl">Dernier saut</div>
-    <div id="resultBox" class="result"><span id="resultVal">—</span><span class="unit">cm</span></div>
+    <div id="resultBox" class="result"><span id="resultVal">—</span><span class="unit" id="resultUnit">cm</span></div>
     <div id="resultInfo" class="info"></div>
-    <button id="lastPhoto" class="thumb hidden" aria-label="Voir la photo au sommet du dernier saut">
-      <img id="lastPhotoImg" alt=""><span>📷 Photo au sommet — voir / envoyer</span></button>
-    <div class="best"><span>Meilleur saut</span><b><span id="bestVal">—</span> <small>cm</small></b></div>
+    <button id="lastPhoto" class="thumb hidden" aria-label="Voir la photo du dernier saut">
+      <img id="lastPhotoImg" alt=""><span>📷 Photo du saut — voir / envoyer</span></button>
+    <div class="best"><span>Meilleur saut</span><b><span id="bestVal">—</span> <small id="bestUnit">cm</small></b></div>
     <ol id="jumpList" class="jumps" aria-label="Sauts de la série"></ol>
     <div class="actions">
       <button id="btnEnd" class="endbtn">Terminer mes mesures</button>
@@ -274,6 +277,10 @@
   <div class="homebar"><span>JumpMeasure <b>LIVE</b></span>
     <span class="homelogos"><img id="homeLogo-ecole" class="logo hidden" alt="L’École promotrice de santé"><img id="homeLogo-main" class="logo hidden" alt="PassSport Santé"></span>
     <button id="homeGear" class="gearbtn" title="Paramètres : maintenir 1 seconde" aria-label="Paramètres administrateur (maintenir 1 s)">⚙</button></div>
+  <div class="modesel" role="group" aria-label="Type de mesure">
+    <button data-measure="vertical">⬆ Détente verticale</button>
+    <button data-measure="long">➡ Saut en longueur</button>
+  </div>
   <button id="btnStart" class="startbtn"><span class="big">Commencer<br>les mesures</span><span id="startSub" class="sub"></span></button>
   <div id="homeFlash" role="status"></div>
 </div>
@@ -281,20 +288,28 @@
 <div id="wizard" class="wizard hidden" role="dialog" aria-label="Calibration">
   <h2>Calibration</h2>
   <div id="wzStatus" class="muted"></div>
+  <div class="wz-long">
+    <div class="muted"><b>Saut en longueur</b> : tablette <b>de profil</b>, perpendiculaire au couloir, à 4–5 m, pour voir toute la zone de réception. Marquez au sol la <b>ligne d’appel</b> et deux repères (par exemple à 1 m et 2 m) avec un ruban, puis prenez la photo et pointez-les.</div>
+    <label class="f">Distance du 1er repère (cm)<input type="number" step="1" min="20" max="500" data-s="longD1"></label>
+    <label class="f">Distance du 2e repère (cm)<input type="number" step="1" min="40" max="600" data-s="longD2"></label>
+    <div class="wbtns"><button class="wopt" id="wzLong"><b>📸 Photo et repères au sol</b><span>Décompte, photo du couloir vide, puis placement des 3 repères</span></button></div>
+  </div>
+  <div class="wz-vertical">
   <div class="muted">Placez l’étalon <b>vertical</b>, à l’emplacement du saut, <b>au niveau du bassin</b> (même distance de la caméra que le sauteur), puis choisissez une méthode.</div>
   <div class="wbtns">
     <button class="wopt" data-detect="white"><b>1 · Feuille blanche</b><span>Détection simple : n’importe quelle feuille A4 blanche, sur un fond plus sombre</span></button>
     <button class="wopt" data-detect="opencv"><b>2 · Feuille blanche — OpenCV</b><span>Détection de contours (≈ 10 Mo téléchargés la première fois)</span></button>
     <button class="wopt" data-detect="markers"><b>3 · Feuille à marqueurs</b><span>La plus fiable : feuille imprimée à 100 % (deux carrés noirs)</span></button>
   </div>
-  <div id="wzMsg" class="wmsg" role="status"></div>
   <div id="wzTable"></div>
   <div class="btnrow">
     <button id="wzManual">✋ Repères à la main</button>
     <a class="btnlink" href="feuille-calibration.html" target="_blank" rel="noopener">🖨 Feuille à marqueurs</a>
   </div>
+  </div>
+  <div id="wzMsg" class="wmsg" role="status"></div>
   <label class="f">Délai pour placer la feuille (s)<input type="number" step="1" min="0" max="30" data-s="detectDelaySec"></label>
-  <label class="f">Distance mesurée entre les centres des carrés (cm)<input type="number" step="0.1" min="5" max="28" data-s="markerDistCm"></label>
+  <label class="f wz-vertical">Distance mesurée entre les centres des carrés (cm)<input type="number" step="0.1" min="5" max="28" data-s="markerDistCm"></label>
   <label class="c"><input type="checkbox" data-s="showWizard"> Afficher cet écran au démarrage</label>
   <div class="btnrow"><button id="wzContinue" class="primary">Continuer</button></div>
 </div>
@@ -323,6 +338,13 @@
         <button id="btnZoneAll">Zone = image entière</button>
         <button id="btnCalClear" class="warn">Effacer la calibration</button>
       </div>
+      <div><b>Saut en longueur</b></div>
+      <div id="calLongStatus"></div>
+      <div class="btnrow">
+        <button id="btnCalLong" class="primary">Calibrer la longueur (photo)</button>
+        <button id="btnCalLongClear" class="warn">Effacer</button>
+      </div>
+      <div class="muted">La zone de saut et la calibration sont propres à chaque mode (détente verticale / longueur) ; les boutons de zone s’appliquent au mode choisi à l’accueil.</div>
       <label class="f">URL d’OpenCV.js (méthode 2, vide = automatique)<input type="text" data-s="opencvUrl" spellcheck="false" placeholder="./vendor/opencv.js puis CDN"></label>
       <label class="f">Distance caméra–sujet (cm, indicative)<input type="text" inputmode="decimal" data-s="distanceNote" placeholder="ex. 300"></label>
       <div class="muted">Placez une feuille A4 <b>verticale</b> (29,7 cm) dans le <b>même plan de profondeur que le bassin</b> du sauteur (au centre de la zone), puis positionnez les deux repères sur ses bords haut et bas. La distance saisie est une simple note : elle ne sert pas au calcul.</div>
@@ -421,11 +443,12 @@
 import {
   A4_CM, cmPerPixel, detenteCm, computeFit, zoomFit, nativeToView, viewToNative,
   validateCalibration, extractPose, inZone, JumpDetector, STATES, DEFAULTS,
+  longAxis, validateLongCalibration, LongJumpDetector,
 } from './core.js';
 import { detectWhiteSheet, detectMarkers, detectSheetOpenCV, combineDetections } from './a4detect.js';
 
 /* ================= Réglages et persistance ================= */
-const K = { settings: 'jml.settings.v1', cal: 'jml.calibration.v1', zone: 'jml.zone.v1' };
+const K = { settings: 'jml.settings.v1', cal: 'jml.calibration.v1', zone: 'jml.zone.v1', calLong: 'jml.calibration.long.v1', zoneLong: 'jml.zone.long.v1' };
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* stockage indisponible */ } },
@@ -444,7 +467,8 @@ const DEF = {
   mpBase: MP_DEFAULT, modelUrl: '',
   bufferSec: 4, bufferWidth: 480, bufferFps: 30,
   showCal: true, showSkeleton: true, showHud: true, distanceNote: '',
-  showWizard: true, detectDelaySec: 5, countUncertain: false, photoOnResult: true, allowShare: true, showLogo: true, keepPhotos: true, opencvUrl: '', markerDistCm: 20,
+  showWizard: true, detectDelaySec: 5, countUncertain: false, photoOnResult: true, allowShare: true, showLogo: true, keepPhotos: true,
+  measureMode: 'vertical', longD1: 100, longD2: 200, opencvUrl: '', markerDistCm: 20,
   det: Object.fromEntries(DET_KEYS.map(k => [k, DEFAULTS[k]])),
 };
 const saved = store.get(K.settings, {});
@@ -453,6 +477,9 @@ if (S.opencvUrl === 'https://docs.opencv.org/4.10.0/opencv.js') S.opencvUrl = ''
 const saveS = () => store.set(K.settings, S);
 let cal = store.get(K.cal, null);
 let zone = store.get(K.zone, null); // { x, y, w, h, videoWidth, videoHeight } en px natifs
+let zoneLong = store.get(K.zoneLong, null);
+let calLong = store.get(K.calLong, null); // saut en longueur : { p0, p1, p2, d1, d2, videoWidth, ... }
+let calLongStatus = { valid: false, reasons: ['Calibration longueur manquante'], warnings: [] };
 
 /* ================= État ================= */
 const $ = (s) => document.querySelector(s);
@@ -462,7 +489,9 @@ let cssW = 0, cssH = 0, dirty = true;
 let calStatus = { valid: false, reasons: ['Calibration manquante'], warnings: [] };
 let zoneActive = null;
 let lowLight = false, lastLumaT = 0;
-const detector = new JumpDetector(S.det);
+const detectorV = new JumpDetector(S.det), detectorL = new LongJumpDetector();
+const isLong = () => S.measureMode === 'long';
+let detector = isLong() ? detectorL : detectorV;
 let landmarker = null, aiState = 'idle', aiErr = '', aiDelegate = '', aiBusy = false, lastAiT = 0;
 let lastPoses = [];
 const poseLog = []; // { t, hipY } pour pré-positionner les lignes du mode manuel
@@ -493,6 +522,13 @@ function setHTML(el, html) { if (el.innerHTML !== html) el.innerHTML = html; }
 function rate(arr, now, win = 1000) { while (arr.length && now - arr[0] > win) arr.shift(); return arr.length * 1000 / win; }
 const vw = () => video.videoWidth, vh = () => video.videoHeight;
 const cmPx = () => calStatus.valid ? cal.cmPerPx : NaN;
+const activeValid = () => isLong() ? calLongStatus.valid : calStatus.valid;
+const activeReasons = () => (isLong() ? calLongStatus : calStatus).reasons;
+// valeurs : centimètres pour la détente, mètres pour la longueur
+const numV = (v, mode = S.measureMode) => !Number.isFinite(v) ? '—' : mode === 'long' ? (v / 100).toFixed(2).replace('.', ',') : fmt(v);
+const unitV = (mode = S.measureMode) => mode === 'long' ? 'm' : 'cm';
+const fmtV = (v, mode = S.measureMode) => !Number.isFinite(v) ? '—' : `${numV(v, mode)} ${unitV(mode)}`;
+const longAx = () => calLongStatus.valid ? longAxis(calLong) : null;
 
 /* ================= Caméra ================= */
 const CAM_ERRORS = {
@@ -569,9 +605,15 @@ function revalidate() {
   calStatus = validateCalibration(cal, {
     videoWidth: vw(), videoHeight: vh(), deviceId: devMatch ? cal?.deviceId : curDeviceId, zoom: curZoom,
   });
-  zoneActive = zone && zone.videoWidth === vw() && zone.videoHeight === vh() ? zone : null;
-  detector.setCalibration(cal?.cmPerPx, calStatus.valid);
-  detector.setZone(zoneActive);
+  const devMatchL = calLong && (calLong.deviceId === curDeviceId || (calLong.deviceLabel && calLong.deviceLabel === curLabel));
+  calLongStatus = validateLongCalibration(calLong, {
+    videoWidth: vw(), videoHeight: vh(), deviceId: devMatchL ? calLong?.deviceId : curDeviceId, zoom: curZoom,
+  });
+  const fitsNow = (z) => z && z.videoWidth === vw() && z.videoHeight === vh() ? z : null;
+  const zV = fitsNow(zone), zL = fitsNow(zoneLong);
+  zoneActive = isLong() ? zL : zV;
+  detectorV.setCalibration(cal?.cmPerPx, calStatus.valid); detectorV.setZone(zV);
+  detectorL.setCalibration(calLong, calLongStatus.valid); detectorL.setZone(zL);
   updateUI(true);
 }
 
@@ -706,13 +748,13 @@ function runAI(t) {
   const ev = detector.update({ t, people: lastPoses });
   if (detector.state !== prevDetState) { if (detector.state === STATES.READY) beep(740, 120); prevDetState = detector.state; }
   // nouvelle position la plus haute pendant le saut : on garde l'image analysée (pleine résolution)
-  if (detector.state === STATES.JUMPING && detector.jump?.apexT === t) grabApex(t);
+  if (detector.state === STATES.JUMPING && (isLong() ? detector.jump?.landT === t : detector.jump?.apexT === t)) grabApex(t);
   if (ev) onDetectorEvent(ev);
   updateUI();
 }
 
 function onDetectorEvent(ev) {
-  const entry = { id: ++histN, time: new Date(), ai: ev.type === 'result' ? ev.detenteCm : null,
+  const entry = { id: ++histN, time: new Date(), mode: S.measureMode, ai: ev.type === 'result' ? ev.valueCm : null, fromToesCm: ev.fromToesCm,
     aiUncertain: ev.uncertain, flightCm: ev.flightCm, issues: ev.issues || [], rejected: ev.type === 'rejected' ? ev.reason : null, manual: null };
   history.unshift(entry); if (history.length > 500) history.pop();
   shownResult = { kind: ev.type === 'result' ? 'ai' : 'rejected', ev, entry };
@@ -766,11 +808,11 @@ function endSession() {
 function renderSession() {
   const list = session?.entries || [], best = bestOf(session);
   const sn = $('#seriesNo'); sn.classList.toggle('hidden', !session);
-  if (session) setHTML(sn, `Série n° <b>${session.n}</b>${S.keepPhotos && S.photoOnResult ? ' · notez ce numéro pour récupérer vos photos' : ''}`);
-  setText($('#bestVal'), best ? fmt(entryValue(best)) : '—');
+  if (session) setHTML(sn, `${isLong() ? '➡ Longueur' : '⬆ Détente'} · série n° <b>${session.n}</b>${S.keepPhotos && S.photoOnResult ? ' · notez ce numéro pour récupérer vos photos' : ''}`);
+  setText($('#bestVal'), best ? numV(entryValue(best), best.mode) : '—'); setText($('#bestUnit'), unitV());
   const items = list.slice().reverse().map(e => {
     const tags = [e === best ? '★ meilleur' : '', e.manual != null ? 'vérifié' : '', e.aiUncertain && e.manual == null ? (S.countUncertain ? '⚠ incertain' : '⚠ non retenu') : ''].filter(Boolean).join(' · ');
-    return `<li class="${e === best ? 'best' : ''}${eligible(e) ? '' : ' off'}"${e.photo ? ` data-id="${e.id}"` : ''}><span>${e.photo ? '📷 ' : ''}Saut ${e.idx}</span><b>${fmt(entryValue(e))} cm</b><em>${tags}</em></li>`;
+    return `<li class="${e === best ? 'best' : ''}${eligible(e) ? '' : ' off'}"${e.photo ? ` data-id="${e.id}"` : ''}><span>${e.photo ? '📷 ' : ''}Saut ${e.idx}</span><b>${fmtV(entryValue(e), e.mode)}</b><em>${tags}</em></li>`;
   }).join('');
   setHTML($('#jumpList'), items || '<li class="empty">Aucun saut pour l’instant</li>');
   const last = [...list].reverse().find(e => e.photo);
@@ -786,7 +828,7 @@ function updateBigState() {
   el.classList.toggle('hidden', !show);
   if (!show) return;
   let txt = '', sub = '', cls = 'WAITING';
-  if (!calStatus.valid) { txt = 'Calibration invalide'; sub = 'Appelez le professeur'; cls = 'REJECT'; }
+  if (!activeValid()) { txt = 'Calibration invalide'; sub = 'Appelez le professeur'; cls = 'REJECT'; }
   else if (S.mode === 'manual') { txt = 'Mode manuel'; sub = 'Le professeur mesure avec « Vérifier »'; }
   else if (aiState === 'loading' || aiState === 'idle') { txt = 'Chargement…'; sub = 'Préparation de l’analyse'; }
   else if (aiState !== 'ready') { txt = 'Analyse indisponible'; sub = 'Appelez le professeur'; cls = 'REJECT'; }
@@ -794,16 +836,17 @@ function updateBigState() {
     const m = detector.message || '';
     switch (detector.state) {
       case STATES.WAITING:
-        if (/Placez-vous/.test(m)) { txt = 'Placez-vous dans la zone de saut'; sub = 'Tout le corps doit être visible, pieds compris'; }
+        if (isLong()) { txt = m.replace(/^Calibration.*/, 'Calibration invalide'); sub = /ligne d’appel/.test(m) ? 'Pieds joints, de profil' : ''; }
+        else if (/Placez-vous/.test(m)) { txt = 'Placez-vous dans la zone de saut'; sub = 'Tout le corps doit être visible, pieds compris'; }
         else { txt = m.replace(/^Calibration.*/, 'Calibration invalide'); }
         break;
-      case STATES.STABILIZING: txt = 'Ne bougez plus…'; sub = 'Repérage de vos hanches'; cls = 'STABILIZING'; break;
-      case STATES.READY: txt = 'VOUS POUVEZ SAUTER\u00a0!'; sub = detector.tiptoe ? 'Montée sur pointes : non comptée' : ''; cls = 'READY'; break;
+      case STATES.STABILIZING: txt = 'Ne bougez plus…'; sub = isLong() ? 'Pieds joints derrière la ligne' : 'Repérage de vos hanches'; cls = 'STABILIZING'; break;
+      case STATES.READY: txt = 'VOUS POUVEZ SAUTER\u00a0!'; sub = isLong() ? 'Pieds joints' : (detector.tiptoe ? 'Montée sur pointes : non comptée' : ''); cls = 'READY'; break;
       case STATES.JUMPING: txt = 'Saut…'; cls = 'JUMPING'; break;
       case STATES.RESULT: {
         const r = detector.lastResult, e = shownResult?.entry;
         if (r?.type === 'result' && e) {
-          txt = `${fmt(r.detenteCm)} cm`;
+          txt = fmtV(r.valueCm, r.mode);
           sub = [`Série ${session?.n ?? ''} · saut ${e.idx ?? ''}`, e.isRecord ? '🏆 Nouveau record !' : '', r.uncertain ? (S.countUncertain ? 'mesure incertaine' : 'mesure incertaine : non retenue') : ''].filter(Boolean).join(' · ');
           cls = 'RESULT';
         } else { txt = 'Saut non mesuré'; sub = (r?.reason || '') + ' — recommencez'; cls = 'REJECT'; }
@@ -826,7 +869,7 @@ function grabApex(t) {
 }
 
 async function storeApexPhoto(ev, entry) {
-  if (apexT == null || Math.abs(apexT - ev.apexT) > 1 || !window.createImageBitmap) return;
+  if (apexT == null || Math.abs(apexT - ev.photoT) > 1 || !window.createImageBitmap) return;
   // instantanés pris tout de suite (le canevas sera réécrit au saut suivant)
   const pBmp = createImageBitmap(apexCanvas);
   const pBlob = new Promise(r => apexCanvas.toBlob(r, 'image/jpeg', 0.9));
@@ -835,7 +878,9 @@ async function storeApexPhoto(ev, entry) {
     const [bmp, blob] = await Promise.all([pBmp, pBlob]);
     resultPhoto?.bmp?.close?.(); resultPhoto = { bmp, t };
     if (!session?.entries.includes(entry)) { return; }
-    entry.apex = { blob, refY: ev.refY, apexY: ev.apexY, apexX: ev.apexX ?? vw() / 2, mirror };
+    entry.apex = ev.mode === 'long'
+      ? { blob, mode: 'long', landPt: ev.landPt, cal: { p0: calLong.p0, p1: calLong.p1, p2: calLong.p2, d1: calLong.d1, d2: calLong.d2 } }
+      : { blob, mode: 'vertical', refY: ev.refY, apexY: ev.apexY, apexX: ev.apexX ?? vw() / 2, mirror };
     await refreshComposite(entry);
   } catch (e) { console.warn('[JumpMeasure] photo au sommet', e); }
   dirty = true; updateUI(true);
@@ -858,14 +903,22 @@ async function refreshComposite(entry) {
     g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); g.setLineDash([]);
     g.fillStyle = col; g.font = `700 ${fs}px system-ui, sans-serif`; g.fillText(label, W * 0.015, y - fs * 0.35);
   };
-  line(entry.apex.refY, '#38bdf8', 'départ'); line(entry.apex.apexY, '#fb923c', 'sommet');
-  drawDim(g, { x: entry.apex.apexX, y: entry.apex.refY }, { x: entry.apex.apexX, y: entry.apex.apexY }, `${fmt(v)} cm`,
-    W, Math.round(H * 0.06), Math.max(3, W / 320));
+  if (entry.apex.mode === 'long') {
+    const ax = longAxis(entry.apex.cal), x0 = entry.apex.cal.p0.x, x1 = entry.apex.landPt?.x ?? x0;
+    const gy = ax ? ax.groundY((x0 + x1) / 2) : H * 0.9;
+    vline(g, x0, H, gy, '#38bdf8', 'ligne d’appel', lw, fs);
+    vline(g, x1, H, gy, '#fb923c', 'réception', lw, fs);
+    drawDimH(g, x0, x1, gy - H * 0.12, fmtV(v, 'long'), W, Math.round(H * 0.06), Math.max(3, W / 320));
+  } else {
+    line(entry.apex.refY, '#38bdf8', 'départ'); line(entry.apex.apexY, '#fb923c', 'sommet');
+    drawDim(g, { x: entry.apex.apexX, y: entry.apex.refY }, { x: entry.apex.apexX, y: entry.apex.apexY }, fmtV(v, 'vertical'),
+      W, Math.round(H * 0.06), Math.max(3, W / 320));
+  }
   const hasLogo = drawLogosOn(g, W, H);
   g.fillStyle = '#0b0f14'; g.fillRect(0, H, W, band);
   g.textBaseline = 'middle';
   g.fillStyle = '#4ade80'; g.font = `800 ${Math.round(band * 0.6)}px system-ui, sans-serif`;
-  g.fillText(`${fmt(v)} cm`, W * 0.03, H + band / 2);
+  g.fillText(fmtV(v, entry.mode), W * 0.03, H + band / 2);
   g.textAlign = 'right';
   g.fillStyle = '#eef3f8'; g.font = `700 ${Math.round(band * 0.2)}px system-ui, sans-serif`;
   const tag = entry.manual != null ? ' · vérifié' : (entry.aiUncertain ? ' · mesure incertaine' : '');
@@ -878,7 +931,7 @@ async function refreshComposite(entry) {
   entry.photo = { blob, url: URL.createObjectURL(blob), value: v, key, logo: hasLogo, w: c.width, h: c.height };
   if (entry.session && !entry.deleted) {
     entry.dbKey ??= `${Date.now()}-${entry.id}`;
-    PhotoDB.put({ key: entry.dbKey, session: entry.session, idx: entry.idx, value: v, manual: entry.manual != null,
+    PhotoDB.put({ key: entry.dbKey, session: entry.session, idx: entry.idx, value: v, mode: entry.mode, manual: entry.manual != null,
       uncertain: !!entry.aiUncertain && entry.manual == null, time: entry.time.toISOString(), blob })
       .then(() => { galleryDirty = true; }).catch(dbError);
   }
@@ -910,6 +963,43 @@ function drawDim(g, a, b, label, canvasW, fontPx, lw) {
   g.fillStyle = 'rgba(11, 15, 20, .85)'; roundRectPath(g, bx, by, bw, bh, pad); g.fill();
   g.fillStyle = '#4ade80'; g.fillText(label, bx + pad, by + bh / 2 + fontPx * 0.04);
   g.restore();
+}
+
+/** Ligne verticale (repère au sol) jusqu'au bas de l'image, avec étiquette. */
+function vline(g, x, H, gy, col, label, lw, fs) {
+  g.save(); g.strokeStyle = col; g.lineWidth = lw; g.setLineDash([lw * 5, lw * 3]);
+  g.beginPath(); g.moveTo(x, gy - H * 0.35); g.lineTo(x, Math.min(H, gy + H * 0.06)); g.stroke(); g.setLineDash([]);
+  g.fillStyle = col; g.font = `700 ${fs}px system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.fillText(label, x, gy - H * 0.35 - fs * 0.4); g.restore();
+}
+/** Flèche horizontale entre x0 et x1 à la hauteur y, avec la distance. */
+function drawDimH(g, x0, x1, y, label, canvasW, fontPx, lw) {
+  const head = Math.max(7, lw * 4), dir = Math.sign(x1 - x0) || 1;
+  g.save(); g.strokeStyle = '#ffffff'; g.fillStyle = '#ffffff'; g.lineWidth = lw; g.shadowColor = 'rgba(0,0,0,.65)'; g.shadowBlur = lw * 2;
+  g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
+  const tip = (tx, d) => { g.beginPath(); g.moveTo(tx, y); g.lineTo(tx - d * head * 1.4, y - head * 0.75); g.lineTo(tx - d * head * 1.4, y + head * 0.75); g.closePath(); g.fill(); };
+  tip(x1, dir); tip(x0, -dir);
+  g.shadowBlur = 0; g.font = `800 ${fontPx}px system-ui, -apple-system, sans-serif`; g.textBaseline = 'middle'; g.textAlign = 'left';
+  const tw = g.measureText(label).width, pad = fontPx * 0.35, bw = tw + 2 * pad, bh = fontPx * 1.35;
+  const bx = Math.max(4, Math.min(canvasW - bw - 4, (x0 + x1) / 2 - bw / 2)), by = y - bh - fontPx * 0.35;
+  g.fillStyle = 'rgba(11, 15, 20, .85)'; roundRectPath(g, bx, by, bw, bh, pad); g.fill();
+  g.fillStyle = '#4ade80'; g.fillText(label, bx + pad, by + bh / 2 + fontPx * 0.04);
+  g.restore();
+}
+/** Règle au sol (mode longueur, à l'écran) : ligne d'appel et graduations tous les 50 cm. */
+function drawLongRuler(fit) {
+  const ax = longAx(); if (!ax) return;
+  ctx.save(); ctx.lineWidth = 2; ctx.font = '700 13px system-ui'; ctx.textAlign = 'center';
+  for (let X = 0; X <= 400; X += 50) {
+    const q = ax.fromCm(X); if (q.x < 0 || q.x > vw()) continue;
+    const a = P({ x: q.x, y: q.y }, fit), b = P({ x: q.x, y: q.y - (X % 100 ? 12 : 26) / fit.scale }, fit);
+    ctx.strokeStyle = X === 0 ? '#38bdf8' : 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    if (X % 100 === 0) { ctx.fillStyle = X === 0 ? '#38bdf8' : '#fff'; ctx.fillText(X === 0 ? 'ligne d’appel' : `${X / 100} m`, b.x, b.y - 5); }
+  }
+  const g0 = P(ax.fromCm(-60), fit), g1 = P(ax.fromCm(400), fit);
+  ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(g0.x, g0.y); ctx.lineTo(g1.x, g1.y); ctx.stroke();
+  ctx.restore();
 }
 
 // Logos des photos : PassSport Santé (haut droite) et L'École promotrice de santé (haut gauche).
@@ -983,17 +1073,17 @@ function dropPhotos(entries) {
 function showingResultPhoto() {
   const r = detector.lastResult;
   return screen === 'session' && S.photoOnResult && !R && !edit && !!resultPhoto && detector.state === STATES.RESULT
-    && r?.type === 'result' && Math.abs(resultPhoto.t - r.apexT) < 1;
+    && r?.type === 'result' && Math.abs(resultPhoto.t - r.photoT) < 1;
 }
 
-const photoName = (e) => `${e.session ? 'serie-' + String(e.session).padStart(3, '0') + '_' : ''}saut-${e.idx ?? ''}_${fmt(entryValue(e)).replace(',', '-')}cm.jpg`;
+const photoName = (e) => `${e.session ? 'serie-' + String(e.session).padStart(3, '0') + '_' : ''}saut-${e.idx ?? ''}_${numV(entryValue(e), e.mode).replace(',', '-')}${unitV(e.mode)}.jpg`;
 async function openViewer(entry) {
   if (!entry) return;
   const ph = entry.apex ? await refreshComposite(entry) : entry.photo;   // photo de la galerie : déjà composée
   if (!ph) return;
   viewerEntry = entry; viewerOpen = true;
   $('#viewerImg').src = ph.url;
-  $('#viewerImg').alt = `Photo au sommet du saut ${entry.idx} : ${fmt(entryValue(entry))} cm`;
+  $('#viewerImg').alt = `Photo du saut ${entry.idx} : ${fmtV(entryValue(entry), entry.mode)}`;
   $('#vShare').classList.toggle('hidden', !S.allowShare); $('#vSave').classList.toggle('hidden', !S.allowShare);
   setText($('#vMsg'), S.allowShare ? 'Envoyer : choisissez « Mail », puis saisissez votre adresse e-mail comme destinataire.' : '');
   $('#viewer').classList.remove('hidden');
@@ -1014,7 +1104,7 @@ $('#vSave').onclick = () => { if (viewerEntry?.photo) { downloadPhoto(viewerEntr
 $('#vShare').onclick = async () => {
   const e = viewerEntry; if (!e?.photo) return;
   const file = new File([e.photo.blob], photoName(e), { type: 'image/jpeg' });
-  const data = { files: [file], title: 'Mon saut — JumpMeasure LIVE', text: `Mon saut : ${fmt(entryValue(e))} cm (JumpMeasure LIVE, mesure indicative).` };
+  const data = { files: [file], title: 'Mon saut — JumpMeasure LIVE', text: `Mon saut : ${fmtV(entryValue(e), e.mode)} (JumpMeasure LIVE, mesure indicative).` };
   // menu de partage du système (Mail, etc.) : la photo ne passe par aucun serveur de l'application
   if (navigator.canShare && navigator.canShare(data)) {
     try { await navigator.share(data); setText($('#vMsg'), 'Envoi préparé dans l’application choisie.'); }
@@ -1071,10 +1161,10 @@ async function renderGallery(force = false) {
   const series = new Set(recs.map(r => r.session)).size;
   setText($('#galInfo'), recs.length ? `${recs.length} photo(s), ${series} série(s), ${fmt(mb, 1)} Mo.` : 'Aucune photo conservée.');
   $('#galGrid').innerHTML = galleryItems.map((r, i) =>
-    `<button data-gal="${i}"><img src="${r.url}" alt=""><span>Série ${r.session} · saut ${r.idx}<br>${fmt(r.value)} cm${r.manual ? ' · vérifié' : r.uncertain ? ' · ⚠' : ''}</span></button>`).join('');
+    `<button data-gal="${i}"><img src="${r.url}" alt=""><span>Série ${r.session} · saut ${r.idx}<br>${fmtV(r.value, r.mode || 'vertical')}${r.manual ? ' · vérifié' : r.uncertain ? ' · ⚠' : ''}</span></button>`).join('');
   ['#btnGalZip', '#btnGalShare', '#btnGalClear'].forEach(id => { $(id).disabled = !recs.length; });
 }
-const galEntry = (r) => ({ id: r.key, session: r.session, idx: r.idx, ai: r.value, manual: null, photo: { blob: r.blob, url: r.url } });
+const galEntry = (r) => ({ id: r.key, session: r.session, idx: r.idx, mode: r.mode || 'vertical', ai: r.value, manual: null, photo: { blob: r.blob, url: r.url } });
 $('#galGrid').addEventListener('click', (ev) => { const b = ev.target.closest('[data-gal]'); if (b) openViewer(galEntry(galleryItems[+b.dataset.gal])); });
 $('#galDetails').addEventListener('toggle', () => { if ($('#galDetails').open) renderGallery(true); });
 
@@ -1149,11 +1239,17 @@ function openReview() {
   }
   const ai = clip.ai;
   R = { clip, frames: clip.frames, idx: clip.frames.length - 1, refIdx: null, topIdx: null, yRef: null, yTop: null,
-    active: 'ref', zoom: 1, savedValue: null };
-  if (ai) {
+    active: 'ref', zoom: 1, savedValue: null, long: isLong(), xLand: null };
+  if (R.long) {
+    R.active = 'top';
+    if (ai?.landPt) { R.topIdx = nearestIdx(R.frames, ai.landT); R.idx = R.topIdx; R.xLand = ai.landPt.x; }
+  } else if (ai) {
     R.refIdx = nearestIdx(R.frames, ai.refT); R.topIdx = nearestIdx(R.frames, ai.apexT);
     R.yRef = ai.refY; R.yTop = ai.apexY; R.idx = R.topIdx; R.active = 'top';
   }
+  ['#rvSetRef', '#rvGoRef'].forEach(id => $(id).classList.toggle('hidden', R.long));
+  setText($('#rvSetTop'), R.long ? 'Image de réception' : 'Image du sommet');
+  setText($('#rvUp'), R.long ? '◀' : '▲'); setText($('#rvDown'), R.long ? '▶' : '▼');
   $('#review').classList.remove('hidden');
   const sl = $('#rvSlider'); sl.max = R.frames.length - 1; sl.value = R.idx;
   updateReview(); updateUI(true);
@@ -1166,11 +1262,13 @@ function closeReview() {
 }
 
 function manualValue() {
+  if (R?.long) { const ax = longAx(); return ax && R.xLand != null ? ax.toCm({ x: R.xLand, y: ax.groundY(R.xLand) }) : NaN; }
   if (!R || R.yRef == null || R.yTop == null) return NaN;
   return detenteCm(R.yRef, R.yTop, cmPx());
 }
 
 function setActiveLine(which, idxForFrame = true) {
+  if (R.long) { R.active = 'top'; if (idxForFrame) R.topIdx = R.idx; if (R.xLand == null) R.xLand = calLong?.p1?.x ?? vw() / 2; return; }
   R.active = which;
   const key = which === 'ref' ? 'refIdx' : 'topIdx', yk = which === 'ref' ? 'yRef' : 'yTop';
   if (idxForFrame) R[key] = R.idx;
@@ -1197,9 +1295,11 @@ function updateReview() {
   const dts = R.frames.slice(1).map((x, i) => x.t - R.frames[i].t);
   const fps = dts.length ? 1000 / (dts.reduce((a, b) => a + b, 0) / dts.length) : 0;
   let note = `Tampon ${R.frames[0].bmp.width}×${R.frames[0].bmp.height} à ≈${fmt(fps, 0)} img/s`;
-  if (cmPx() > 0) note += ` · 1 px du tampon ≈ ${fmt(cmPx() * k, 2)} cm · intervalle entre images ≈ ${fmt(1000 / (fps || 1), 0)} ms`;
+  const kcm = R.long ? (longAx()?.cmPerPxAt(calLong.p1) ?? NaN) : cmPx();
+  if (kcm > 0) note += ` · 1 px du tampon ≈ ${fmt(kcm * k, 2)} cm · intervalle entre images ≈ ${fmt(1000 / (fps || 1), 0)} ms`;
   if (!hasRVFC) note += ' · ⚠ ce navigateur ne garantit pas une capture image par image : le sommet réel peut tomber entre deux images.';
-  note += ' — Glissez la ligne active (bleue = départ, orange = sommet) ; ▲▼ pour l’ajuster finement.';
+  note += R.long ? ' — Choisissez l’image de réception, puis glissez la ligne orange sur le talon le plus proche de la ligne d’appel ; ◀ ▶ pour l’ajuster.'
+    : ' — Glissez la ligne active (bleue = départ, orange = sommet) ; ▲▼ pour l’ajuster finement.';
   setText($('#rvNote'), note);
   dirty = true; updateUI(true);
 }
@@ -1208,14 +1308,14 @@ function stepFrame(d) { if (!R) return; R.idx = Math.max(0, Math.min(R.frames.le
 
 function saveManual() {
   const v = manualValue();
-  if (!Number.isFinite(v)) { flash(calStatus.valid ? 'Placez d’abord les deux lignes (départ et sommet).' : 'Calibration invalide : mesure impossible.'); return; }
+  if (!Number.isFinite(v)) { flash(activeValid() ? (R.long ? 'Placez d’abord la ligne de réception.' : 'Placez d’abord les deux lignes (départ et sommet).') : 'Calibration invalide : mesure impossible.'); return; }
   let entry = R.clip.entryId ? history.find(h => h.id === R.clip.entryId) : null;
-  if (!entry) { entry = { id: ++histN, time: new Date(), ai: null, manual: null, issues: [] }; history.unshift(entry); R.clip.entryId = entry.id; if (session) addToSession(entry); }
+  if (!entry) { entry = { id: ++histN, time: new Date(), mode: S.measureMode, ai: null, manual: null, issues: [] }; history.unshift(entry); R.clip.entryId = entry.id; if (session) addToSession(entry); }
   entry.manual = v;
   if (entry.apex) refreshComposite(entry).then(() => updateUI(true));
   shownResult = { kind: 'manual', entry };
   R.savedValue = v;
-  renderHistory(); flash(`Mesure manuelle enregistrée : ${fmt(v)} cm`, true); updateUI(true);
+  renderHistory(); flash(`Mesure manuelle enregistrée : ${fmtV(v)}`, true); updateUI(true);
 }
 
 /* ================= Rendu ================= */
@@ -1235,6 +1335,7 @@ function baseFit() { return computeFit(vw(), vh(), cssW, viewH(), S.fitMode); }
 function viewFit() {
   const f = baseFit();
   if (!R || R.zoom === 1) return f;
+  if (R.long) { const ax = longAx(), x = R.xLand ?? vw() / 2; return zoomFit(f, R.zoom, { x, y: ax ? ax.groundY(x) - vh() * 0.05 : vh() * 0.8 }, cssW, viewH(), S.mirror); }
   const ly = R.active === 'ref' ? R.yRef : R.yTop;
   const fx = zoneActive ? zoneActive.x + zoneActive.w / 2 : vw() / 2;
   return zoomFit(f, R.zoom, { x: fx, y: ly ?? vh() / 2 }, cssW, viewH(), S.mirror);
@@ -1320,21 +1421,58 @@ function drawOverlays(fit, forLoupe = false) {
     ctx.strokeRect(Math.min(a.x, b.x), a.y, Math.abs(b.x - a.x), b.y - a.y); ctx.restore();
     for (const c of zoneCorners(z)) handle(c, fit, '#fb923c', false);
   }
+  // mode longueur : ligne d'appel et graduations au sol
+  if (isLong() && !edit && S.showCal && !forLoupe && !R) drawLongRuler(fit);
+  // édition calibration longueur
+  if (edit?.kind === 'calLong') {
+    const pts = [edit.p0, edit.p1, edit.p2], labels = ['ligne d’appel', `${fmt(S.longD1 / 100, 2)} m`, `${fmt(S.longD2 / 100, 2)} m`];
+    const a = P(edit.p0, fit), b = P(edit.p2, fit);
+    ctx.save(); ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+    ctx.beginPath(); ctx.moveTo(a.x - (b.x - a.x) * 0.3, a.y - (b.y - a.y) * 0.3); ctx.lineTo(b.x + (b.x - a.x) * 0.3, b.y + (b.y - a.y) * 0.3); ctx.stroke(); ctx.restore();
+    pts.forEach((q, i) => {
+      handle(q, fit, i === 0 ? '#38bdf8' : '#fb923c', drag?.which === 'p' + i);
+      const v = P(q, fit); ctx.save(); ctx.fillStyle = i === 0 ? '#38bdf8' : '#fb923c'; ctx.font = '700 15px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(labels[i], v.x, v.y - 34); ctx.restore();
+    });
+  }
   // direct IA
   if (!R && !edit && S.mode === 'ai') {
     if (S.showSkeleton && !forLoupe && !showingResultPhoto()) lastPoses.forEach(p => drawSkeleton(p, fit, inZone(p.hip, zoneActive) ? '#38bdf8' : '#64748b'));
-    if (detector.ref && [STATES.READY, STATES.JUMPING].includes(detector.state)) hline(detector.ref.hipY, fit, '#38bdf8', 'référence bassin', 2, [8, 6]);
-    if (detector.state === STATES.JUMPING && detector.jump) hline(detector.jump.apexY, fit, '#fb923c', '', 2);
-    if (detector.state === STATES.RESULT && detector.lastResult?.type === 'result') {
+    if (!isLong() && detector.ref && [STATES.READY, STATES.JUMPING].includes(detector.state)) hline(detector.ref.hipY, fit, '#38bdf8', 'référence bassin', 2, [8, 6]);
+    if (!isLong() && detector.state === STATES.JUMPING && detector.jump) hline(detector.jump.apexY, fit, '#fb923c', '', 2);
+    const lr = detector.lastResult, ax = longAx();
+    if (detector.state === STATES.RESULT && lr?.type === 'result' && lr.mode === 'long' && ax && !forLoupe) {
+      const x0 = calLong.p0.x, x1 = lr.landPt?.x ?? x0, gy = ax.groundY((x0 + x1) / 2);
+      const a = P({ x: x0, y: gy }, fit), b = P({ x: x1, y: gy }, fit), top = P({ x: x0, y: gy - vh() * 0.3 }, fit);
+      ctx.save(); ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
+      for (const [q, c] of [[a, '#38bdf8'], [b, '#fb923c']]) { ctx.strokeStyle = c; ctx.beginPath(); ctx.moveTo(q.x, top.y); ctx.lineTo(q.x, q.y + 10); ctx.stroke(); }
+      ctx.restore();
+      drawDimH(ctx, a.x, b.x, a.y - (a.y - top.y) * 0.45, fmtV(lr.valueCm, 'long'), cssW, Math.round(Math.min(52, Math.max(20, cssH * 0.065))), 3);
+    }
+    if (detector.state === STATES.RESULT && detector.lastResult?.type === 'result' && detector.lastResult.mode !== 'long') {
       const r = detector.lastResult; hline(r.refY, fit, '#38bdf8', 'départ', 2); hline(r.apexY, fit, '#fb923c', 'sommet', 2);
       if (!forLoupe && r.apexX != null) {
-        drawDim(ctx, P({ x: r.apexX, y: r.refY }, fit), P({ x: r.apexX, y: r.apexY }, fit), `${fmt(r.detenteCm)} cm`,
+        drawDim(ctx, P({ x: r.apexX, y: r.refY }, fit), P({ x: r.apexX, y: r.apexY }, fit), fmtV(r.valueCm, 'vertical'),
           cssW, Math.round(Math.min(52, Math.max(20, cssH * 0.065))), 3);
       }
     }
   }
-  // revue manuelle
-  if (R) {
+  // revue manuelle — longueur : ligne d'appel fixe + ligne verticale de réception
+  if (R && R.long) {
+    const ax = longAx();
+    if (ax) {
+      const gy0 = ax.groundY(calLong.p0.x), a = P({ x: calLong.p0.x, y: gy0 }, fit), at = P({ x: calLong.p0.x, y: gy0 - vh() * 0.35 }, fit);
+      ctx.save(); ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(a.x, at.y); ctx.lineTo(a.x, a.y + 10); ctx.stroke(); ctx.restore();
+      if (R.xLand != null) {
+        const gy = ax.groundY(R.xLand), b = P({ x: R.xLand, y: gy }, fit), bt = P({ x: R.xLand, y: 0 }, fit), bb = P({ x: R.xLand, y: vh() }, fit);
+        ctx.save(); ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b.x, bt.y); ctx.lineTo(b.x, bb.y); ctx.stroke();
+        if (!forLoupe) { ctx.fillStyle = '#fb923c'; for (const y of [Math.max(bt.y, 0) + 28, Math.min(bb.y, viewH()) - 28]) { ctx.beginPath(); ctx.arc(b.x, y, 16, 0, Math.PI * 2); ctx.fill(); } }
+        ctx.restore();
+        if (!forLoupe) drawDimH(ctx, a.x, b.x, b.y - 40, fmtV(manualValue(), 'long'), cssW, 22, 3);
+      }
+    }
+  }
+  if (R && !R.long) {
     if (R.yRef != null) hline(R.yRef, fit, '#38bdf8', `départ${R.refIdx != null ? ' (img ' + (R.refIdx + 1) + ')' : ''}`, R.active === 'ref' ? 3 : 2);
     if (R.yTop != null) hline(R.yTop, fit, '#fb923c', `sommet${R.topIdx != null ? ' (img ' + (R.topIdx + 1) + ')' : ''}`, R.active === 'top' ? 3 : 2);
     if (!forLoupe) {
@@ -1396,10 +1534,24 @@ canvas.addEventListener('pointerdown', (e) => {
     if (Math.min(d1, d2) > 60) return;
     const hv = P(edit[which], fit);
     drag = { kind: 'cal', which, off: { x: hv.x - p.x, y: hv.y - p.y } };
+  } else if (edit?.kind === 'calLong') {
+    const ds = [edit.p0, edit.p1, edit.p2].map(dist), i = ds.indexOf(Math.min(...ds));
+    if (ds[i] > 60) return;
+    const hv = P(edit['p' + i], fit);
+    drag = { kind: 'cal', which: 'p' + i, off: { x: hv.x - p.x, y: hv.y - p.y } };
   } else if (edit?.kind === 'zone') {
     const cs = zoneCorners(edit.rect), ds = cs.map(dist), i = ds.indexOf(Math.min(...ds));
     if (ds[i] < 50) drag = { kind: 'zoneCorner', i, opp: cs[3 - i] };
     else { const n = viewToNative(p, fit, S.mirror); if (inZone(n, edit.rect)) drag = { kind: 'zoneMove', start: n, rect: { ...edit.rect } }; }
+  } else if (R && R.long) {
+    const n = viewToNative(p, fit, S.mirror);
+    const near = R.xLand != null && Math.abs(P({ x: R.xLand, y: n.y }, fit).x - p.x) < 40;
+    const off = near ? P({ x: R.xLand, y: n.y }, fit).x - p.x : 0;
+    if (R.topIdx == null) R.topIdx = R.idx;
+    drag = { kind: 'vline', off };
+    R.xLand = clampN(viewToNative({ x: p.x + off, y: p.y }, fit, S.mirror)).x;
+    loupe = { view: p, native: { x: R.xLand, y: longAx()?.groundY(R.xLand) ?? n.y } };
+    updateReview();
   } else if (R) {
     const n = viewToNative(p, fit, S.mirror);
     const dy = (y) => y == null ? Infinity : Math.abs(P({ x: 0, y }, fit).y - p.y);
@@ -1429,6 +1581,11 @@ canvas.addEventListener('pointermove', (e) => {
   } else if (drag.kind === 'zoneMove') {
     const n = viewToNative(p, fit, S.mirror), r = drag.rect;
     edit.rect = { ...r, x: Math.min(Math.max(r.x + n.x - drag.start.x, 0), vw() - r.w), y: Math.min(Math.max(r.y + n.y - drag.start.y, 0), vh() - r.h) };
+  } else if (drag.kind === 'vline' && R) {
+    const n = clampN(viewToNative({ x: p.x + drag.off, y: p.y }, fit, S.mirror));
+    R.xLand = n.x; const gy = longAx()?.groundY(n.x) ?? n.y;
+    loupe = { view: P({ x: n.x, y: gy }, fit), native: { x: n.x, y: gy } };
+    updateUI(true);
   } else if (drag.kind === 'line' && R) {
     const yk = R.active === 'ref' ? 'yRef' : 'yTop';
     const n = viewToNative({ x: p.x, y: p.y + drag.off }, fit, S.mirror);
@@ -1457,15 +1614,28 @@ function startEdit(kind, det = null, fromWizard = false, opts = {}) {
     }
     edit = { kind, p1, p2, refCm, method: det ? det.method : (markers ? 'markers' : 'manual'), detect: det, adjusted: false,
       fromWizard, photo: opts.photo || null, sourceMethod: src, failReason: opts.failReason || null };
+  } else if (kind === 'calLong') {
+    const keep = calLong && calLong.videoWidth === vw() && calLong.videoHeight === vh();
+    const gy = vh() * 0.88;
+    edit = { kind, p0: keep ? { ...calLong.p0 } : { x: vw() * 0.2, y: gy }, p1: keep ? { ...calLong.p1 } : { x: vw() * 0.45, y: gy },
+      p2: keep ? { ...calLong.p2 } : { x: vw() * 0.7, y: gy }, fromWizard, photo: opts.photo || null, sourceMethod: 'long', adjusted: false };
   } else {
     const z = zoneActive || { x: vw() * 0.25, y: 0, w: vw() * 0.5, h: vh() };
     edit = { kind, rect: { x: z.x, y: z.y, w: z.w, h: z.h } };
   }
-  $('#editRetake').classList.toggle('hidden', !(edit.kind === 'cal' && edit.photo));
+  $('#editRetake').classList.toggle('hidden', !((edit.kind === 'cal' || edit.kind === 'calLong') && edit.photo));
   $('#editbar').classList.remove('hidden'); updateEditText(); dirty = true; updateUI(true);
 }
 function updateEditText() {
   if (!edit) return;
+  if (edit.kind === 'calLong') {
+    const c = { p0: edit.p0, p1: edit.p1, p2: edit.p2, d1: S.longD1, d2: S.longD2, videoWidth: vw(), videoHeight: vh() };
+    const st = validateLongCalibration(c, null), ax = longAxis(c);
+    const info = st.valid ? `1 m ≈ ${fmt(100 / ax.cmPerPxAt(edit.p0), 0)} px près de la ligne` : st.reasons.join(' · ');
+    setHTML($('#editTxt'), `Sur la photo, placez les 3 repères <b>au sol</b> : la <b>ligne d’appel</b> (bleu), puis les repères à ${fmt(S.longD1 / 100, 2)} m et ${fmt(S.longD2 / 100, 2)} m.
+      <small>${info}${st.warnings.length ? '<br>⚠ ' + st.warnings.join(' · ') : ''}. Le saut se fera vers le 2e repère. Distances modifiables dans l’écran Calibration.</small>`);
+    return;
+  }
   if (edit.kind === 'cal') {
     const h = Math.hypot(edit.p2.x - edit.p1.x, edit.p2.y - edit.p1.y), d = edit.detect;
     const target = edit.method === 'markers' ? `les <b>centres des deux carrés</b> (${fmt(edit.refCm)} cm)` : 'le <b>haut</b> et le <b>bas</b> de la feuille A4 (29,7 cm)';
@@ -1488,10 +1658,20 @@ function endEdit(save) {
     saveCalibration(edit.p1, edit.p2, edit.refCm, edit.method, det);
     flash(`Calibration enregistrée (${METHOD_FR[edit.method]}) : ${fmt(cal.cmPerPx, 4)} cm/px`, true);
   }
+  if (save && edit?.kind === 'calLong') {
+    const c = { p0: edit.p0, p1: edit.p1, p2: edit.p2, d1: S.longD1, d2: S.longD2, videoWidth: vw(), videoHeight: vh(),
+      deviceId: curDeviceId, deviceLabel: curLabel, zoom: curZoom, date: new Date().toISOString() };
+    const st = validateLongCalibration(c, null);
+    if (!st.valid) { flash('Calibration impossible : ' + st.reasons.join(' · ')); return; }
+    calLong = c; store.set(K.calLong, calLong); revalidate();
+    flash(`Calibration longueur enregistrée (1 m ≈ ${fmt(100 / longAxis(c).cmPerPxAt(c.p0), 0)} px).`, true);
+  }
   if (save && edit?.kind === 'zone') {
     const r = edit.rect;
     if (r.w < 40 || r.h < 40) { flash('Zone trop petite.'); return; }
-    zone = { ...r, videoWidth: vw(), videoHeight: vh() }; store.set(K.zone, zone); revalidate();
+    const z = { ...r, videoWidth: vw(), videoHeight: vh() };
+    if (isLong()) { zoneLong = z; store.set(K.zoneLong, z); } else { zone = z; store.set(K.zone, z); }
+    revalidate();
     flash('Zone de saut enregistrée.', true);
   }
   const back = !save && edit?.fromWizard;
@@ -1522,7 +1702,7 @@ function updateUI(force = false) {
   let banner = null, info = false;
   if (flashMsg && now < flashUntil) { banner = flashMsg.txt; info = flashMsg.ok; }
   else if (camError) banner = camError;
-  else if (!calStatus.valid && vw()) banner = '⚠ ' + calStatus.reasons.join(' · ') + ' — maintenez ⚙ pour calibrer.';
+  else if (!activeValid() && vw()) banner = '⚠ ' + activeReasons().join(' · ') + ' — maintenez ⚙ pour calibrer.';
   else if (S.mode === 'ai' && aiState === 'error') banner = 'Modèle IA non chargé (' + aiErr + '). Le mode manuel reste disponible.';
   else if (lowLight && vw()) banner = 'Faible luminosité : la détection peut être moins fiable.';
   const b = $('#banner');
@@ -1532,7 +1712,7 @@ function updateUI(force = false) {
   // état / message
   const pill = $('#pill'); let cls, label, msg;
   if (R) { cls = 'REVIEW'; label = 'Vérification'; msg = 'Choisissez l’image de départ et l’image du sommet, puis placez les lignes.'; }
-  else if (edit) { cls = 'MANUAL'; label = 'Réglage'; msg = edit.kind === 'cal' ? 'Calibration en cours' : 'Zone de saut'; }
+  else if (edit) { cls = 'MANUAL'; label = 'Réglage'; msg = edit.kind === 'zone' ? 'Zone de saut' : 'Calibration en cours'; }
   else if (S.mode === 'manual') { cls = 'MANUAL'; label = 'Manuel'; msg = 'Faites sauter, puis appuyez sur « Figer et mesurer ».'; }
   else if (aiState === 'loading') { cls = 'WAITING'; label = 'IA…'; msg = 'Chargement du modèle IA…'; }
   else if (aiState !== 'ready') { cls = 'WAITING'; label = 'IA indisponible'; msg = 'Utilisez le mode Manuel.'; }
@@ -1542,19 +1722,21 @@ function updateUI(force = false) {
   // résultat
   const box = $('#resultBox'); let val = '—', inf = '';
   box.classList.remove('uncertain', 'manual');
+  let shownMode = S.measureMode;
   if (R) {
     const v = manualValue(); box.classList.add('manual');
-    val = fmt(v);
+    val = numV(v);
     const ai = R.clip.ai;
-    inf = ai ? `IA : ${fmt(ai.detenteCm)} cm · écart manuel − IA : ${Number.isFinite(v) ? fmt(v - ai.detenteCm) : '—'} cm` : 'Mesure manuelle';
-    if (!calStatus.valid) inf = 'Calibration invalide : mesure impossible';
+    inf = ai ? `IA : ${fmtV(ai.valueCm)} · écart manuel − IA : ${Number.isFinite(v) ? fmt(v - ai.valueCm) : '—'} cm` : 'Mesure manuelle';
+    if (!activeValid()) inf = 'Calibration invalide : mesure impossible';
   } else if (shownResult?.kind === 'ai') {
-    const ev = shownResult.ev; val = fmt(ev.detenteCm);
+    const ev = shownResult.ev; shownMode = ev.mode || 'vertical'; val = numV(ev.valueCm, shownMode);
     if (ev.uncertain) { box.classList.add('uncertain'); inf = `<span class="tag">mesure incertaine</span> ${ev.issues.join(', ')} — vérifiez`; }
+    else if (shownMode === 'long') inf = `IA · depuis la ligne d’appel · depuis les pointes : ${fmtV(ev.fromToesCm, 'long')} · ${fmt(ev.aiFps, 0)} analyses/s`;
     else inf = `IA · vol ≈ ${fmt(ev.flightCm, 0)} cm (temps de vol, indicatif) · ${fmt(ev.aiFps, 0)} analyses/s`;
-  } else if (shownResult?.kind === 'manual') { box.classList.add('manual'); val = fmt(shownResult.entry.manual); inf = 'Mesure manuelle'; }
+  } else if (shownResult?.kind === 'manual') { box.classList.add('manual'); shownMode = shownResult.entry.mode || shownMode; val = numV(shownResult.entry.manual, shownMode); inf = 'Mesure manuelle'; }
   else if (shownResult?.kind === 'rejected') { inf = `<span class="tag">mesure écartée</span> ${shownResult.ev.reason}`; }
-  setText($('#resultVal'), val); setHTML($('#resultInfo'), inf);
+  setText($('#resultVal'), val); setText($('#resultUnit'), unitV(shownMode)); setHTML($('#resultInfo'), inf);
 
   // boutons
   document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x.dataset.mode === S.mode));
@@ -1564,7 +1746,7 @@ function updateUI(force = false) {
 
   // comparaison
   const last = history.find(h => h.ai != null && h.manual != null);
-  setHTML($('#compare'), last ? `Dernière comparaison (saut n°${last.id}) : IA <b>${fmt(last.ai)}</b> · manuel <b>${fmt(last.manual)}</b> · écart <b>${fmt(last.manual - last.ai)}</b> cm` : '');
+  setHTML($('#compare'), last ? `Dernière comparaison (saut n°${last.id}) : IA <b>${fmtV(last.ai, last.mode)}</b> · manuel <b>${fmtV(last.manual, last.mode)}</b> · écart <b>${fmt(last.manual - last.ai)}</b> cm` : '');
 
   // HUD
   const hud = $('#hud'); hud.classList.toggle('hidden', !S.showHud || !vw() || !!R);
@@ -1580,11 +1762,12 @@ function updateUI(force = false) {
   if (homeVisible) {
     let ok = true, sub = '';
     if (!vw()) { ok = false; sub = camError || 'Démarrage de la caméra…'; }
-    else if (!calStatus.valid) { ok = false; sub = 'Calibration nécessaire : maintenez ⚙ (professeur)'; }
+    else if (!activeValid()) { ok = false; sub = `Calibration ${isLong() ? 'du saut en longueur' : 'de la détente'} nécessaire : maintenez ⚙ (professeur)`; }
     else if (S.mode === 'manual') sub = 'Mode manuel : le professeur mesure';
     else if (aiState === 'loading') sub = 'Chargement de l’analyse…';
     else if (aiState === 'error') sub = 'Analyse automatique indisponible';
     $('#btnStart').disabled = !ok; setText($('#startSub'), sub);
+    document.querySelectorAll('[data-measure]').forEach(b => b.classList.toggle('on', b.dataset.measure === S.measureMode));
     setText($('#homeFlash'), flashMsg && now < flashUntil ? flashMsg.txt : '');
   }
   for (const L of LOGOS) $('#homeLogo-' + L.id).classList.toggle('hidden', !(S.showLogo && logoOk(L)));
@@ -1610,6 +1793,14 @@ $('#btnNew').onclick = () => {
 };
 $('#btnVerify').onclick = () => { if (R) closeReview(); else openReview(); };
 $('#btnStart').onclick = startSession;
+function setMeasureMode(m) {
+  if (m !== 'vertical' && m !== 'long') return;
+  S.measureMode = m; saveS();
+  detector = m === 'long' ? detectorL : detectorV;
+  detector.reset(); prevDetState = null; shownResult = null; setLastClip(null);
+  revalidate(); dirty = true; updateUI(true);
+}
+document.querySelectorAll('[data-measure]').forEach(b => b.addEventListener('click', () => setMeasureMode(b.dataset.measure)));
 $('#btnEnd').onclick = endSession;
 $('#btnTools').onclick = () => {
   const t = $('#tools'); t.classList.toggle('hidden');
@@ -1631,6 +1822,7 @@ $('#rvSetTop').onclick = () => { setActiveLine('top'); updateReview(); };
 $('#rvGoRef').onclick = () => { if (R?.refIdx != null) { R.idx = R.refIdx; R.active = 'ref'; updateReview(); } };
 $('#rvGoTop').onclick = () => { if (R?.topIdx != null) { R.idx = R.topIdx; R.active = 'top'; updateReview(); } };
 const nudge = (d) => {
+  if (R?.long) { if (R.xLand == null) setActiveLine('top'); R.xLand = Math.min(Math.max(R.xLand + (S.mirror ? -d : d), 0), vw()); updateReview(); return; }
   if (!R) return; const yk = R.active === 'ref' ? 'yRef' : 'yTop';
   if (R[yk] == null) setActiveLine(R.active);
   R[yk] = Math.min(Math.max(R[yk] + d, 0), vh()); updateReview();
@@ -1681,15 +1873,17 @@ document.querySelectorAll('[data-s]').forEach(el => el.addEventListener('change'
 }));
 document.querySelectorAll('[data-d]').forEach(el => el.addEventListener('change', () => {
   const v = Number(el.value); if (!Number.isFinite(v)) return;
-  S.det[el.dataset.d] = v; saveS(); detector.setParams({ [el.dataset.d]: v });
+  S.det[el.dataset.d] = v; saveS(); detectorV.setParams({ [el.dataset.d]: v });
 }));
-$('#btnDetDefaults').onclick = () => { S.det = { ...DEF.det }; S.minHipVis = DEF.minHipVis; S.minFootVis = DEF.minFootVis; saveS(); detector.setParams(S.det); syncInputs(); };
+$('#btnDetDefaults').onclick = () => { S.det = { ...DEF.det }; S.minHipVis = DEF.minHipVis; S.minFootVis = DEF.minFootVis; saveS(); detectorV.setParams(S.det); syncInputs(); };
 $('#btnCamApply').onclick = () => { if (R) closeReview(); S.deviceLabel = ''; saveS(); startCamera(); };
 $('#btnAiReload').onclick = () => { landmarker = null; aiState = 'idle'; loadModel(); };
 $('#btnCal').onclick = () => runCalibration('manual', false);
 $('#btnWizard').onclick = () => { closeAdmin(); openWizard(); };
 $('#btnZone').onclick = () => startEdit('zone');
-$('#btnZoneAll').onclick = () => { zone = null; store.del(K.zone); revalidate(); flash('Zone : image entière.', true); };
+$('#btnZoneAll').onclick = () => { if (isLong()) { zoneLong = null; store.del(K.zoneLong); } else { zone = null; store.del(K.zone); } revalidate(); flash('Zone : image entière.', true); };
+$('#btnCalLong').onclick = () => runCalibration('long', false);
+$('#btnCalLongClear').onclick = () => { if (confirm('Effacer la calibration du saut en longueur ?')) { calLong = null; store.del(K.calLong); revalidate(); } };
 $('#btnCalClear').onclick = () => { if (confirm('Effacer la calibration enregistrée ?')) { cal = null; store.del(K.cal); revalidate(); } };
 $('#btnFull').onclick = () => { const d = document.documentElement; (document.fullscreenElement ? document.exitFullscreen() : d.requestFullscreen?.())?.catch?.(() => {}); };
 
@@ -1702,7 +1896,11 @@ function updateAdmin() {
       · caméra « ${(cal.deviceLabel || 'inconnue').replace(/</g, '&lt;')} »${cal.distanceNote ? ' · distance notée ' + cal.distanceNote + ' cm' : ''}</div>`;
     if (calStatus.warnings.length) h += `<div class="warnc">${calStatus.warnings.join('<br>')}</div>`;
   }
-  h += `<div class="muted">Zone de saut : ${zoneActive ? `${fmt(zoneActive.w, 0)}×${fmt(zoneActive.h, 0)} px` : (zone ? '<span class="warnc">enregistrée pour une autre résolution (ignorée)</span>' : 'image entière')}</div>`;
+  setHTML($('#calLongStatus'), !calLong ? '<span class="bad">Aucune calibration du saut en longueur.</span>'
+    : `<div class="${calLongStatus.valid ? 'ok' : 'bad'}"><b>${calLongStatus.valid ? 'Calibration longueur valide' : 'Calibration longueur invalide'}</b>${calLongStatus.reasons.length ? ' : ' + calLongStatus.reasons.join(' · ') : ''}</div>
+      <div class="muted">Repères à 0, ${fmt(calLong.d1 / 100, 2)} m et ${fmt(calLong.d2 / 100, 2)} m · image ${calLong.videoWidth}×${calLong.videoHeight} · ${new Date(calLong.date).toLocaleString('fr-FR')}</div>
+      ${calLongStatus.warnings.length ? `<div class="warnc">${calLongStatus.warnings.join('<br>')}</div>` : ''}`);
+  h += `<div class="muted">Zone de saut (${isLong() ? 'longueur' : 'détente'}) : ${zoneActive ? `${fmt(zoneActive.w, 0)}×${fmt(zoneActive.h, 0)} px` : (zone ? '<span class="warnc">enregistrée pour une autre résolution (ignorée)</span>' : 'image entière')}</div>`;
   setHTML($('#calStatus'), h);
   const st = track?.getSettings?.() || {};
   setText($('#camInfo'), vw() ? `Active : « ${curLabel || '?'} » · ${vw()}×${vh()} · ${st.frameRate ? fmt(st.frameRate, 0) + ' img/s annoncées' : ''}${st.facingMode ? ' · ' + st.facingMode : ''}${curZoom != null ? ' · zoom ' + curZoom : ''}` : 'Caméra inactive');
@@ -1724,15 +1922,15 @@ function updateAdmin() {
 
 function renderHistory() {
   const rows = history.slice(0, 80).map(h => `<tr${h.deleted ? ' style="opacity:.45"' : ''}><td>${h.session ? 'série ' + h.session + ' · ' : ''}${h.idx ? 'saut ' + h.idx : '#' + h.id} · ${h.time.toLocaleTimeString('fr-FR')}${h.deleted ? ' (supprimé)' : ''}</td>
-    <td>${h.ai != null ? fmt(h.ai) + (h.aiUncertain ? ' ⚠' : '') : (h.rejected ? 'écartée' : '—')}</td>
-    <td>${h.manual != null ? fmt(h.manual) : '—'}</td><td>${h.ai != null && h.manual != null ? fmt(h.manual - h.ai) : ''}</td></tr>`).join('');
-  setHTML($('#histTable'), history.length ? `<table><tr><th>Saut</th><th>IA (cm)</th><th>Manuel (cm)</th><th>Écart</th></tr>${rows}</table>` : '<div class="muted">Aucune mesure.</div>');
+    <td>${h.ai != null ? fmtV(h.ai, h.mode) + (h.aiUncertain ? ' ⚠' : '') : (h.rejected ? 'écartée' : '—')}</td>
+    <td>${h.manual != null ? fmtV(h.manual, h.mode) : '—'}</td><td>${h.ai != null && h.manual != null ? fmt(h.manual - h.ai) : ''}</td></tr>`).join('');
+  setHTML($('#histTable'), history.length ? `<table><tr><th>Saut</th><th>IA</th><th>Manuel</th><th>Écart (cm)</th></tr>${rows}</table>` : '<div class="muted">Aucune mesure.</div>');
 }
 $('#btnCsv').onclick = () => {
   const n = (v) => v == null ? '' : v.toFixed(1).replace('.', ',');
-  const lines = ['serie;saut;heure;ia_cm;ia_incertaine;manuel_cm;ecart_cm;vol_indicatif_cm;supprime;remarque'];
-  [...history].reverse().forEach(h => lines.push([h.session ?? '', h.idx ?? '', h.time.toLocaleTimeString('fr-FR'), n(h.ai), h.aiUncertain ? 'oui' : '',
-    n(h.manual), h.ai != null && h.manual != null ? n(h.manual - h.ai) : '', n(h.flightCm), h.deleted ? 'oui' : '', (h.rejected || h.issues.join(', ')).replace(/;/g, ',')].join(';')));
+  const lines = ['mesure;serie;saut;heure;ia_cm;ia_incertaine;manuel_cm;ecart_cm;vol_indicatif_cm;depuis_pointes_cm;supprime;remarque'];
+  [...history].reverse().forEach(h => lines.push([h.mode === 'long' ? 'longueur' : 'detente', h.session ?? '', h.idx ?? '', h.time.toLocaleTimeString('fr-FR'), n(h.ai), h.aiUncertain ? 'oui' : '',
+    n(h.manual), h.ai != null && h.manual != null ? n(h.manual - h.ai) : '', n(h.flightCm), n(h.fromToesCm), h.deleted ? 'oui' : '', (h.rejected || h.issues.join(', ')).replace(/;/g, ',')].join(';')));
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], { type: 'text/csv' }));
   a.download = 'jumpmeasure-session.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -1846,7 +2044,8 @@ async function runCalibration(method, fromWizard = true) {
     const delay = Math.max(0, Math.min(30, Math.round(S.detectDelaySec || 0)));
     const what = method === 'markers' ? 'la feuille à marqueurs' : 'la feuille A4';
     closeWizard(); closeAdmin(); updateUI(true);
-    if (delay > 0 && !(await countdown(delay, `Placez ${what} au niveau du bassin, puis éloignez-vous`))) {
+    const label = method === 'long' ? 'Dégagez le couloir : photo des repères au sol' : `Placez ${what} au niveau du bassin, puis éloignez-vous`;
+    if (delay > 0 && !(await countdown(delay, label))) {
       hideCountdown(); if (fromWizard) { openWizard(); wzMsg('Calibration annulée.'); } return;
     }
     showCountdown('📸', 'Photo !', true); beep(990, 220);
@@ -1862,7 +2061,8 @@ async function runCalibration(method, fromWizard = true) {
     }
     await new Promise(r => setTimeout(r, 250));
     hideCountdown(); wzMsg('');
-    startEdit('cal', res?.ok ? res : null, fromWizard, { photo, method, failReason: res && !res.ok ? (res.reason || 'échec') : null });
+    if (method === 'long') startEdit('calLong', null, fromWizard, { photo });
+    else startEdit('cal', res?.ok ? res : null, fromWizard, { photo, method, failReason: res && !res.ok ? (res.reason || 'échec') : null });
   } catch (e) {
     hideCountdown(); if (fromWizard) openWizard();
     wzResults[method] = { ok: false, method, reason: e?.message || String(e) };
@@ -1877,6 +2077,15 @@ async function runCalibration(method, fromWizard = true) {
 
 function updateWizard() {
   if (!wizardOpen) return;
+  document.querySelectorAll('#wizard .wz-vertical').forEach(el => el.classList.toggle('hidden', isLong()));
+  document.querySelectorAll('#wizard .wz-long').forEach(el => el.classList.toggle('hidden', !isLong()));
+  if (isLong()) {
+    setHTML($('#wzStatus'), (!calLong ? '<span class="bad">Saut en longueur : aucune calibration.</span>'
+      : `<span class="${calLongStatus.valid ? 'ok' : 'bad'}">Saut en longueur : calibration ${calLongStatus.valid ? 'valide' : 'invalide'}</span>${calLongStatus.valid ? '' : '<br>' + calLongStatus.reasons.join(' · ')}`) + (vw() ? '' : '<br>En attente de la caméra…'));
+    $('#wzLong').disabled = !vw() || detecting;
+    setText($('#wzContinue'), calLongStatus.valid ? 'Continuer avec la calibration actuelle' : 'Continuer sans calibrer');
+    return;
+  }
   let st;
   if (!cal) st = '<span class="bad">Aucune calibration enregistrée.</span>';
   else st = `<span class="${calStatus.valid ? 'ok' : 'bad'}">Calibration actuelle ${calStatus.valid ? 'valide' : 'invalide'}</span> · ${METHOD_FR[cal.method ?? 'manual']} · ${fmt(cal.cmPerPx, 4)} cm/px · ${new Date(cal.date).toLocaleString('fr-FR')}${calStatus.valid ? '' : '<br>' + calStatus.reasons.join(' · ')}`;
@@ -1897,6 +2106,7 @@ function updateWizard() {
 
 document.querySelectorAll('[data-detect]').forEach(b => b.addEventListener('click', () => runCalibration(b.dataset.detect, true)));
 $('#wzManual').onclick = () => runCalibration('manual', true);
+$('#wzLong').onclick = () => runCalibration('long', true);
 $('#wzContinue').onclick = () => { closeWizard(); detector.reset(); updateUI(true); };
 
 /* ================= Veille, visibilité ================= */
@@ -1909,7 +2119,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ================= Démarrage ================= */
-window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, detector, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, logos: LOGOS, PhotoDB, get galleryItems() { return galleryItems; }, renderGallery, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
+window.JML = { S, get cal() { return cal; }, get calStatus() { return calStatus; }, get detector() { return detector; }, buf, get R() { return R; }, get lastClip() { return lastClip; }, history, get calLong() { return calLong; }, get calLongStatus() { return calLongStatus; }, setMeasureMode, get aiState() { return aiState; }, get aiErr() { return aiErr; }, get edit() { return edit; }, wzResults, get wizardOpen() { return wizardOpen; }, get screen() { return screen; }, get session() { return session; }, bestOf, get viewerOpen() { return viewerOpen; }, showingResultPhoto, logos: LOGOS, PhotoDB, get galleryItems() { return galleryItems; }, renderGallery, toView: (pt) => P(pt, currentFit()) }; // accès pour diagnostic et tests
 resizeCanvas();
 loadLogos();
 if (S.showWizard) openWizard();
