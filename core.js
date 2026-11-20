@@ -155,7 +155,8 @@ export const DEFAULTS = {
   takeoffFootCm: 2.5,    // élévation min du point bas de CHAQUE pied (décollage réel)
   landingFootCm: 1.5,    // pieds revenus à moins de x cm du sol = réception
   minFlightMs: 120, maxFlightMs: 1200,
-  maxLostMs: 160,        // trou de suivi toléré pendant le saut
+  maxLostMs: 160,        // trou de suivi toléré à l'arrêt
+  flightLostMs: 450,     // trou de suivi toléré en vol (flou de mouvement)
   resultHoldMs: 2500,    // période réfractaire après un résultat (anti double comptage)
   readyDriftCm: 6, readyDriftMs: 1500,
   minDetenteCm: 3, maxDetenteCm: 120,
@@ -280,7 +281,7 @@ export class JumpDetector {
         const J = this.jump;
         if (multiple) return this._reject(t, 'Plusieurs personnes dans la zone');
         if (!person) {
-          if (lost) return this._reject(t, 'Perte de suivi pendant le saut');
+          if (t - this.lastSeen > P.flightLostMs) return this._reject(t, 'Perte de suivi pendant le saut');
           J.lostFrames++; return null;
         }
         if (!person.inFrame) return this._reject(t, 'Sortie du cadre pendant le saut');
@@ -387,9 +388,10 @@ export const LONG_DEFAULTS = {
   landingWindowMs: 300, // collecte du talon le plus en arrière après le contact
   handCheckMs: 900,     // surveillance d'une main posée en arrière
   maxLostMs: 200, resultHoldMs: 3000,
+  landingLostMs: 800,   // en vol, pieds non retrouvés au-delà de maxFlightMs + ce délai → écarté
   minDistCm: 30, maxDistCm: 400,
   minAiFps: 12, minQualityVis: 0.6,
-  minFootVis: 0.3,      // seuls les pieds comptent en longueur (le haut du corps peut être hors champ)
+  minFootVis: 0.25,     // seuls les pieds comptent en longueur (le haut du corps peut être hors champ)
 };
 
 export class LongJumpDetector {
@@ -481,26 +483,37 @@ export class LongJumpDetector {
       case STATES.JUMPING: {
         const J = this.jump;
         if (multiple) return this._reject(t, 'Plusieurs personnes dans la zone');
-        if (!person || !m) { if (lost) return this._reject(t, 'Perte de suivi des pieds pendant le saut'); J.lostFrames++; return null; }
-        if (!feetIn) return this._reject(t, 'Pieds sortis du cadre : élargissez le champ de la caméra');
-        J.samples++; J.visSum += footVis;
-        if (!J.landT) {
-          if (t - J.takeoffT > P.maxFlightMs) return this._reject(t, 'Durée de vol invraisemblable');
-          if (onGround && t - J.takeoffT >= P.minFlightMs && m.heelB > this.ref.toeStart + 15) { J.landT = t; }
-          else return null;
+        if (!person || !m) {
+          // pieds momentanément perdus (flou de mouvement) : toléré en vol ; après le contact, on garde les mesures déjà prises
+          J.lostFrames++;
+          if (!J.landT) {
+            if (t - J.takeoffT > P.maxFlightMs + P.landingLostMs) return this._reject(t, 'Pieds non retrouvés à la réception (flou ? lumière ?)');
+            return null;
+          }
+          if (t - J.landT < Math.max(P.landingWindowMs, P.handCheckMs)) return null;
+        } else {
+          if (!feetIn) return this._reject(t, 'Pieds sortis du cadre : élargissez le champ de la caméra');
+          J.samples++; J.visSum += footVis;
+          if (!J.landT) {
+            if (t - J.takeoffT > P.maxFlightMs + (J.lostFrames ? P.landingLostMs : 0)) return this._reject(t, 'Durée de vol invraisemblable');
+            if (onGround && t - J.takeoffT >= P.minFlightMs && m.heelB > this.ref.toeStart + 15) { J.landT = t; J.lostAtLanding = J.lostFrames; }
+            else return null;
+          }
+          // après le contact : talon le plus en arrière, main posée derrière ?
+          if (t - J.landT <= P.landingWindowMs) {
+            J.heels.push(m.heelB);
+            if (!J.heelPt || m.heelB <= Math.min(...J.heels)) J.heelPt = m.heelPt;
+          }
+          const lc = Math.min(...J.heels);
+          for (const w of person.wrists || []) {
+            if (!(w.v >= 0.5)) continue;
+            const gy = this.axis.groundY(w.x), k = this.axis.cmPerPxAt({ x: w.x, y: gy });
+            if ((gy - w.y) * k < 8 && this.axis.toCm({ x: w.x, y: gy }) < lc - 5) J.hand = true;
+          }
+          if (t - J.landT < Math.max(P.landingWindowMs, P.handCheckMs)) return null;
         }
-        // après le contact : talon le plus en arrière, main posée derrière ?
-        if (t - J.landT <= P.landingWindowMs) {
-          J.heels.push(m.heelB);
-          if (!J.heelPt || m.heelB <= Math.min(...J.heels)) J.heelPt = m.heelPt;
-        }
+        if (!J.heels.length) return this._reject(t, 'Pieds non retrouvés à la réception');
         const landCm = Math.min(...J.heels);
-        for (const w of person.wrists || []) {
-          if (!(w.v >= 0.5)) continue;
-          const gy = this.axis.groundY(w.x), k = this.axis.cmPerPxAt({ x: w.x, y: gy });
-          if ((gy - w.y) * k < 8 && this.axis.toCm({ x: w.x, y: gy }) < landCm - 5) J.hand = true;
-        }
-        if (t - J.landT < Math.max(P.landingWindowMs, P.handCheckMs)) return null;
         const d = landCm;
         if (d < P.minDistCm) return this._reject(t, 'Saut trop court');
         if (d > P.maxDistCm) return this._reject(t, 'Valeur aberrante');
@@ -508,7 +521,7 @@ export class LongJumpDetector {
         const issues = [];
         if (avgVis < P.minQualityVis) issues.push('confiance du suivi faible');
         if (aiFps < P.minAiFps) issues.push(`cadence IA faible (${aiFps.toFixed(0)} img/s)`);
-        if (J.lostFrames > 1) issues.push('images perdues');
+        if (J.heels.length < 3) issues.push('réception peu suivie');
         if (J.hand) issues.push('main posée derrière les talons ?');
         const res = {
           type: 'result', mode: 'long', valueCm: d, distanceCm: d, fromToesCm: d - this.ref.toeStart, toeStartCm: this.ref.toeStart,

@@ -130,6 +130,8 @@ MediaPipe Pose Landmarker (version 0.10.14, figée), exécuté dans le navigateu
 - Le **temps de vol** (`h = g·t²/8`) est affiché à titre indicatif seulement : à 20–30 analyses/s, il est trop imprécis pour servir de mesure.
 - Tous les seuils sont réglables dans *Paramètres → Analyse IA*.
 
+- **Flou de mouvement pendant le saut** : en vol, le modèle peut perdre les pieds ou les hanches pendant quelques images. Ces pertes sont tolérées : jusqu'à 0,45 s en détente (mesure alors signalée incertaine) ; en longueur, pendant tout le vol, la mesure se faisant quand les pieds réapparaissent au sol. Pendant le saut, la confiance des points est lissée (pas de « clignotement ») et le modèle est réglé un peu moins exigeant pour garder la personne. En bas de l'écran, **confiance pieds / hanches** (0 à 1) aide à régler l'installation : viser plus de 0,6 à l'arrêt.
+- **Si le suivi se perd encore** : plus de lumière (moins de flou), pas de contre-jour, chaussures qui contrastent avec le sol, modèle *Full* (*Paramètres → Analyse IA*) si la tablette tient au moins 15 à 20 analyses par seconde, et caméra plus proche pour que les pieds soient plus grands à l'image.
 - **Lissage du suivi** : l'IA réestime les points du corps à chaque image, avec quelques pixels d'écart, et le squelette « tremble » même quand l'élève est immobile. Un filtre (« One Euro ») lisse ces tremblements sans retarder les mouvements rapides. Les points lissés servent à l'affichage et à la détection de l'immobilité ; **pendant le saut, ce sont les points bruts** qui sont utilisés, pour ne pas écrêter le sommet ni décaler la réception. Réglages dans *Paramètres → Analyse IA* : **Lissage du suivi** (aucun, léger, moyen par défaut, fort) et **Tolérance d'immobilité** (stricte, normale par défaut, souple). Si « Ne bougez plus » reste affiché alors que l'élève est immobile, passer le lissage à *Fort* ou la tolérance à *Souple*.
 La cadence réelle de l'IA dépend de l'appareil (affichée en bas à gauche). Aucune cadence n'est garantie.
 
@@ -165,7 +167,7 @@ Puis, dans *Paramètres → Analyse IA* : Base MediaPipe = `./vendor/mediapipe`,
 ## Tests
 
 ```bash
-node --test tests/*.test.mjs                 # 78 tests : conversions, calibrations, détecteurs (détente et longueur), lissage, détection de feuille
+node --test tests/*.test.mjs                 # 82 tests : conversions, calibrations, détecteurs (détente et longueur), lissage, détection de feuille
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
 python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications : les 3 boutons via fausse caméra
 python3 tests/e2e_long.py /chemin/chrome          # 18 vérifications : saut en longueur (faux modèle, vue de profil simulée)

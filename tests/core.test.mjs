@@ -212,10 +212,15 @@ test('une deuxième personne entre pendant le saut → mesure écartée', () => 
 
 test('perte de suivi pendant le vol → mesure écartée', () => {
   const d = newDet();
-  const ev = run(d, 4000, (t) => (t > 2050 && t < 2400) ? [] : [jumping(t, 1500, 30)]);
+  const ev = run(d, 4000, (t) => (t > 2050 && t < 2700) ? [] : [jumping(t, 1500, 30)]);
   assert.equal(ev[0].type, 'rejected'); assert.match(ev[0].reason, /suivi/);
 });
 
+test('hanches perdues 300 ms en vol (flou) : saut mesuré mais signalé incertain', () => {
+  seed = 9; const d = newDet();
+  const ev = run(d, 4000, (t) => (t > 2050 && t < 2350) ? [] : [jumping(t, 1500, 30)]);
+  assert.equal(ev[0].type, 'result', ev[0].reason); assert.equal(ev[0].uncertain, true);
+});
 test('absence de sujet : reste en attente', () => {
   const d = newDet(); run(d, 2000, () => []);
   assert.equal(d.state, STATES.WAITING); assert.match(d.message, /Placez-vous/);

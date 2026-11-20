@@ -114,6 +114,29 @@ test('pieds non détectés : en attente, message sur les pieds', () => {
   run(d, CAL_LIN, 2000, (t, ax) => { const p = makePose(ax, { toeCm: -5 }); p.footL.v = p.footR.v = 0.1; return [p]; });
   assert.equal(d.state, STATES.WAITING);
 });
+test('pieds perdus pendant le vol (flou) : saut quand même mesuré', () => {
+  const d = new LongJumpDetector();
+  const evs = run(d, CAL_LIN, 5000, (t, ax) => {
+    const p = makePose(ax, jumpAt(ax, t));
+    if (t > 2000 && t < 2400) { p.footL.v = p.footR.v = 0.05; }   // 400 ms sans pieds en vol
+    return [p];
+  });
+  assert.equal(evs[0]?.type, 'result', JSON.stringify(evs)); close(evs[0].valueCm, 179, 1.5);
+});
+test('pieds retrouvés seulement après le contact : mesure faite sur le talon posé', () => {
+  const d = new LongJumpDetector();
+  const evs = run(d, CAL_LIN, 5000, (t, ax) => {
+    const p = makePose(ax, jumpAt(ax, t));
+    if (t > 2000 && t < 2550) { p.footL.v = p.footR.v = 0.05; }   // contact vers 2,45 s, pieds revus à 2,55 s
+    return [p];
+  });
+  assert.equal(evs[0]?.type, 'result', JSON.stringify(evs)); close(evs[0].valueCm, 179, 1.5);
+});
+test('pieds jamais retrouvés : saut écarté avec un message clair', () => {
+  const d = new LongJumpDetector();
+  const evs = run(d, CAL_LIN, 6000, (t, ax) => { const p = makePose(ax, jumpAt(ax, t)); if (t > 2000) { p.footL.v = p.footR.v = 0.05; } return [p]; });
+  assert.equal(evs[0]?.type, 'rejected'); assert.match(evs[0].reason, /réception/);
+});
 test('pieds au-delà de la ligne : jamais prêt', () => {
   const d = new LongJumpDetector();
   const evs = run(d, CAL_LIN, 3000, (t, ax) => [makePose(ax, { toeCm: 3 })]);
@@ -125,10 +148,10 @@ test('trop loin derrière la ligne : « Avancez »', () => {
   run(d, cal, 2000, (t, ax) => [makePose(ax, { toeCm: -90 })]);
   assert.match(d.message, /Avancez/);
 });
-test('perte de suivi pendant le vol → écartée', () => {
+test('personne perdue après le décollage et jamais retrouvée → écartée', () => {
   const d = new LongJumpDetector();
-  const evs = run(d, CAL_LIN, 5000, (t, ax) => (t > 2050 && t < 2400) ? [] : [makePose(ax, jumpAt(ax, t))]);
-  assert.equal(evs[0].type, 'rejected'); assert.match(evs[0].reason, /suivi/);
+  const evs = run(d, CAL_LIN, 6000, (t, ax) => t > 2050 ? [] : [makePose(ax, jumpAt(ax, t))]);
+  assert.equal(evs[0].type, 'rejected'); assert.match(evs[0].reason, /réception/);
 });
 test('réception hors du cadre → écartée', () => {
   const d = new LongJumpDetector();
