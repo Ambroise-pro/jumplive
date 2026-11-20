@@ -1,5 +1,5 @@
-Logos affichés sur l’accueil, l’écran de mesure et les photos :
-- logo.png : PassSport Santé (photos : en haut à droite, fond transparent)
-- logo-ecole.jpg : L’École promotrice de santé 26-27 (photos : en haut à gauche)
-Pour les changer pour tous les appareils, remplacez ces fichiers (mêmes noms).
+Logos affichés sur l’accueil, l’écran de mesure et les photos (fond transparent sur les photos) :
+- logo.png : PassSport Santé (photos : en haut à droite)
+- logo-ecole.png : L’École promotrice de santé 26-27 (photos : en haut à gauche), détouré depuis le JPEG fourni
+Pour les changer pour tous les appareils, remplacez ces fichiers (mêmes noms, PNG transparent conseillé).
 Un logo importé depuis Paramètres → Affichage est prioritaire, sur la tablette concernée uniquement.

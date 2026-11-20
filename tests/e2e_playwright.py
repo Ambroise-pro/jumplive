@@ -201,7 +201,36 @@ try:
         ev('() => { window.__MOCK_TWO = false; }')
         page.click('#btnEnd'); page.wait_for_timeout(300)
         check('terminer → accueil, historique conservé côté professeur', ev('JML.screen') == 'home' and ev('JML.history.length') >= 3)
-        check('photos effacées à la fin de la série', ev('JML.history.every(h => !h.photo && !h.apex)'))  # historique en mémoire (rechargé à l’étape 6)
+        check('mémoire libérée à la fin de la série', ev('JML.history.every(h => !h.photo && !h.apex)'))
+        page.wait_for_timeout(300)
+        recs = ev('JML.PhotoDB.all().then(r => r.map(x => ({ s: x.session, i: x.idx, v: x.value, kb: Math.round(x.blob.size / 1024) })))')
+        check('photos conservées dans la galerie après « Terminer » (saut supprimé exclu)', len(recs) == 2 and sorted(r['i'] for r in recs) == [1, 2], str(recs))
+        # galerie : export ZIP
+        long_press(); page.click('summary:has-text("Photos conservées")'); page.wait_for_timeout(500)
+        check('galerie affichée', ev('document.querySelectorAll("#galGrid [data-gal]").length') == 2, page.inner_text('#galInfo'))
+        with page.expect_download() as dl:
+            page.click('#btnGalZip')
+        zpath = f'{OUT}/galerie.zip'; dl.value.save_as(zpath)
+        import zipfile
+        with zipfile.ZipFile(zpath) as z:
+            names = z.namelist(); bad = z.testzip()
+            from PIL import Image as _I; import io
+            dims = _I.open(io.BytesIO(z.read(names[0]))).size
+        check('ZIP valide avec les 2 photos lisibles', len(names) == 2 and bad is None and all(n.startswith('serie-') and n.endswith('cm.jpg') for n in names) and dims[0] == W,
+              ', '.join(names))
+        page.click('#galGrid [data-gal="0"]'); page.wait_for_timeout(400)
+        check('photo de la galerie ouverte en grand', ev('JML.viewerOpen') and not hidden('#vShare'))
+        page.click('#vClose')
+        # option désactivée : les photos de la série suivante ne sont pas gardées
+        page.click('label:has(input[data-s="keepPhotos"])'); page.click('#adminClose')
+        page.click('#btnStart'); wait('JML.session.entries.length >= 1 && JML.session.entries[0].photo', 25000)
+        page.click('#btnEnd'); page.wait_for_timeout(500)
+        check('« Conserver les photos » décoché → photos de la série effacées', ev('JML.PhotoDB.all().then(r => r.length)') == 2)
+        ev('() => document.querySelector("#btnGalClear").disabled = false')
+        page.once('dialog', lambda d: d.accept())
+        long_press(); page.click('#btnGalClear'); page.wait_for_timeout(400)
+        check('effacer toutes les photos', ev('JML.PhotoDB.all().then(r => r.length)') == 0)
+        page.click('#adminClose')  # historique en mémoire (rechargé à l’étape 6)
         page.screenshot(path=f'{OUT}/06_accueil.png')
 
         # 9. Rotation simulée (calibration enregistrée en orientation inverse)
