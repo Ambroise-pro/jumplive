@@ -173,7 +173,8 @@ node --test tests/*.test.mjs                 # 82 tests : conversions, calibrati
 OPENCV_JS=/chemin/opencv.js node --test tests/a4detect.test.mjs   # + tests OpenCV
 python3 tests/e2e_calibration.py /chemin/chrome   # 16 vérifications : les 3 boutons via fausse caméra
 python3 tests/e2e_long.py /chemin/chrome          # 18 vérifications : saut en longueur (faux modèle, vue de profil simulée)
-python3 tests/e2e_camera.py /chemin/chrome        # 9 vérifications : changement de caméra (2 caméras simulées)
+python3 tests/e2e_camera.py /chemin/chrome        # 10 vérifications : changement de caméra (2 caméras simulées)
+python3 tests/e2e_portrait.py /chemin/chrome      # 7 vérifications : tablette en portrait (vidéo 720×1280 simulée)
 pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   # 48 vérifications de bout en bout
 ```
 
@@ -190,3 +191,13 @@ pip install playwright && python3 tests/e2e_playwright.py /chemin/vers/chrome   
 - mémoire du tampon sur iPad/Android (et réglage durée/largeur/cadence) ;
 - Safari iOS : `requestVideoFrameCallback`, maintien de l'écran allumé, plein écran (non disponible sur iPhone) ;
 - exactitude globale contre une référence (voir « Validation »).
+
+
+## Caméra en portrait
+
+*Paramètres → Caméra → Orientation de l’image* : **Automatique** (par défaut, suit la position de la tablette), **Paysage** ou **Portrait**.
+- En portrait, l’image est demandée plus haute que large (ex. 720×1280) et occupe ~64 % de la hauteur de l’écran.
+- En automatique, une rotation de la tablette relance la caméra dans la bonne orientation (≈ 0,7 s).
+- La calibration est liée à l’orientation : après un changement, l’app signale « Orientation modifiée » → **recalibrer**.
+- Le portrait convient bien à la **détente verticale** (corps entier plus grand à l’écran). Pour le **saut en longueur**, garder le paysage (champ horizontal nécessaire).
+- Testé en simulation (fausse caméra Chrome 720×1280 + faux modèle IA). À vérifier sur la tablette réelle : certaines caméras ignorent la demande d’orientation et renvoient toujours une image paysage.

@@ -208,6 +208,11 @@
     .bigstate .bs { font-size: clamp(14px, 3.6vw, 24px); }
     .wizard { top: auto; height: 56vh; width: 100%; border-left: 0; border-top: 1px solid var(--line); }
     #app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 46vh) 1fr; }
+    body.portrait-cam #app { grid-template-rows: minmax(0, 64vh) 1fr; }
+    body.portrait-cam #side { gap: 8px; padding: 10px 12px; }
+    body.portrait-cam #resultVal { font-size: clamp(44px, 12vw, 96px); }
+    body.portrait-cam .msg { font-size: 18px; }
+    body.portrait-cam .wizard { height: 40vh; }
     #side { border-left: 0; border-top: 1px solid var(--line); }
     .msg { min-height: 0; }
     .actions { grid-template-columns: 1fr 1fr; }
@@ -390,6 +395,8 @@
 
     <details><summary>Caméra</summary><div>
       <label class="f">Caméra<select id="selCam" data-s="deviceId"><option value="">Automatique</option></select></label>
+      <label class="f">Orientation de l’image<select data-s="camOrient">
+        <option value="auto">Automatique (selon la tablette)</option><option value="landscape">Paysage</option><option value="portrait">Portrait</option></select></label>
       <label class="f">Résolution demandée<select data-s="resolution">
         <option value="640x480">640 × 480</option><option value="1280x720">1280 × 720</option><option value="1920x1080">1920 × 1080</option>
       </select></label>
@@ -511,7 +518,7 @@ const DEF = {
   showCal: true, showSkeleton: true, showHud: true, distanceNote: '',
   showWizard: true, detectDelaySec: 5, countUncertain: false, photoOnResult: true, allowShare: true, showLogo: true, keepPhotos: true,
   measureMode: 'vertical', longD1: 100, longD2: 200,
-  smoothing: 'medium', stillTol: 1.5, opencvUrl: '', markerDistCm: 20,
+  smoothing: 'medium', stillTol: 1.5, camOrient: 'auto', opencvUrl: '', markerDistCm: 20,
   det: Object.fromEntries(DET_KEYS.map(k => [k, DEFAULTS[k]])),
 };
 const saved = store.get(K.settings, {});
@@ -606,9 +613,12 @@ async function startCamera() {
   camError = null;
   if (!window.isSecureContext) { camError = 'Caméra impossible : ouvrez l’application en HTTPS (ou sur localhost).'; updateUI(true); return; }
   if (!navigator.mediaDevices?.getUserMedia) { camError = 'Ce navigateur ne permet pas d’accéder à la caméra.'; updateUI(true); return; }
-  const [w, h] = S.resolution.split('x').map(Number);
+  const [w0, h0] = S.resolution.split('x').map(Number);
+  // orientation de l'image : portrait = plus haute que large (tablette debout)
+  const portrait = wantPortrait();
+  const w = portrait ? Math.min(w0, h0) : Math.max(w0, h0), h = portrait ? Math.max(w0, h0) : Math.min(w0, h0);
   const mk = (withId) => ({ audio: false, video: {
-    width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 },
+    width: { ideal: w }, height: { ideal: h }, aspectRatio: { ideal: w / h }, frameRate: { ideal: 30 },
     ...(withId && S.deviceId ? { deviceId: { exact: S.deviceId } } : { facingMode: { ideal: S.facing } }),
   } });
   let s;
@@ -645,6 +655,25 @@ async function listCameras() {
   } catch { }
 }
 
+/** Image voulue en portrait ? (réglage, ou position de la tablette en automatique) */
+function wantPortrait() {
+  if (S.camOrient === 'portrait') return true;
+  if (S.camOrient === 'landscape') return false;
+  return window.innerHeight > window.innerWidth;
+}
+// rotation de la tablette (mode automatique) : si l'image ne suit pas, on relance la caméra dans la bonne orientation
+let orientTimer = null;
+function onScreenRotate() {
+  clearTimeout(orientTimer);
+  orientTimer = setTimeout(() => {
+    if (S.camOrient !== 'auto' || !vw() || !stream) return;
+    const imgPortrait = vh() > vw();
+    if (imgPortrait !== wantPortrait()) startCamera();
+  }, 700);
+}
+window.matchMedia('(orientation: portrait)').addEventListener?.('change', onScreenRotate);
+window.addEventListener('orientationchange', onScreenRotate);
+
 /** Passe à la caméra suivante (ou à une caméra précise). La calibration de chaque mode reste liée à sa caméra. */
 async function switchCamera(targetId = null) {
   if (!cameras.length) await listCameras();
@@ -667,6 +696,7 @@ video.addEventListener('resize', onVideoDims);
 
 function onVideoDims() {
   if (!vw()) return;
+  document.body.classList.toggle('portrait-cam', vh() > vw());
   if (longCalOpen && !edit) setTimeout(() => { if (longCalOpen && !edit && vw()) startEdit('calLong', null, false, { panel: true }); }, 0);
   // nouvelles dimensions → l'ancien tampon n'est plus cohérent
   clearBuffer();
@@ -1983,6 +2013,7 @@ document.querySelectorAll('[data-s]').forEach(el => el.addEventListener('change'
   if (k === 'mpBase' && !v) { S.mpBase = MP_DEFAULT; el.value = MP_DEFAULT; saveS(); }
   if ((k === 'longD1' || k === 'longD2') && edit) updateEditText();
   if (k === 'smoothing' || k === 'stillTol') applyTuning();
+  if (k === 'camOrient') startCamera();
   dirty = true; updateUI(true);
 }));
 document.querySelectorAll('[data-d]').forEach(el => el.addEventListener('change', () => {
