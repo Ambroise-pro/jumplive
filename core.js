@@ -387,6 +387,7 @@ export const LONG_DEFAULTS = {
   minFlightMs: 150, maxFlightMs: 1200,
   landingWindowMs: 300, // collecte du talon le plus en arrière après le contact
   stillCmPerFrame: 2.5, // pieds considérés posés quand le talon avance de moins de x cm d'une image à l'autre
+  ghostVisGap: 0.3,     // pied dont la confiance est inférieure de plus de x à celle de l'autre : écarté des mesures
   handCheckMs: 900,     // surveillance d'une main posée en arrière
   maxLostMs: 200, resultHoldMs: 3000,
   landingLostMs: 800,   // en vol, pieds non retrouvés au-delà de maxFlightMs + ce délai → écarté
@@ -429,15 +430,24 @@ export class LongJumpDetector {
     return r ? r.footY + (A.groundY(x) - A.groundY(r.footX)) : A.groundY(x);
   }
   _measure(person) {
-    const A = this.axis, toCm = A.toCm;
-    const feet = this._feet(person);
-    const toeF = Math.max(...feet.map(f => toCm(f.toe)));
-    const heelB = Math.min(...feet.map(f => Math.min(toCm(f.heel), toCm(f.toe))));
+    const A = this.axis, toCm = A.toCm, r = this.ref;
+    const sides = [['L', person.footL], ['R', person.footR]].filter(([, f]) => f && f.v >= this.p.minFootVis && Number.isFinite(f.y) && Number.isFinite(f.x));
+    const feet = sides.map(([, f]) => f);
+    // pied nettement moins bien vu que l'autre (souvent celui du fond, caché) : écarté des mesures de position
+    const bestV = Math.max(...feet.map(f => f.v));
+    const good = feet.filter(f => f.v >= bestV - this.p.ghostVisGap);
+    const toeF = Math.max(...good.map(f => toCm(f.toe)));
+    const heelB = Math.min(...good.map(f => Math.min(toCm(f.heel), toCm(f.toe))));
     const k = (x) => A.cmPerPxAt({ x, y: A.groundY(x) });
-    const lift = this.ref ? feet.map(f => (this._groundAt(f.x) - f.y) * k(f.x)) : feet.map(() => 0);
-    const heelPt = feet.map(f => [f.heel, f.toe]).flat().reduce((m, q) => toCm(q) < toCm(m) ? q : m);
+    // élévation de chaque pied par rapport à SA hauteur quand l'élève était immobile (pente du sol suivie)
+    const lift = r ? sides.map(([sd, f]) => {
+      const ry = r['y' + sd] ?? r.footY;
+      return (ry + (A.groundY(f.x) - A.groundY(r.footX)) - f.y) * k(f.x);
+    }) : feet.map(() => 0);
+    const heelPt = good.map(f => [f.heel, f.toe]).flat().reduce((m, q) => toCm(q) < toCm(m) ? q : m);
     const footY = Math.max(...feet.map(f => f.y)), footX = feet.reduce((a, f) => a + f.x, 0) / feet.length;
-    return { toeF, heelB, lift, heelPt, footY, footX, kFoot: k(footX) };
+    const yL = sides.find(([sd]) => sd === 'L')?.[1].y ?? null, yR = sides.find(([sd]) => sd === 'R')?.[1].y ?? null;
+    return { toeF, heelB, lift, heelPt, footY, footX, yL, yR, kFoot: k(footX) };
   }
   update(frame) {
     const { t } = frame, P = this.p;
@@ -455,7 +465,8 @@ export class LongJumpDetector {
     const feetIn = feet.length > 0 && feet.every(f => f.inFrame !== false);
     const footVis = feet.length ? feet.reduce((a, f) => a + f.v, 0) / feet.length : 0;
     const m = feet.length ? this._measure(person) : null;
-    const onGround = m && m.lift.every(l => l < P.landingFootCm);
+    const onGround = m && m.lift.every(l => l < P.landingFootCm);           // tous les pieds posés
+    const touched = m && Math.min(...m.lift) < P.landingFootCm;             // au moins un pied revenu au sol
 
     switch (this.state) {
       case STATES.WAITING:
@@ -468,14 +479,15 @@ export class LongJumpDetector {
         if (m.toeF > P.foulCm) { this._toWaiting(t, 'Reculez : les pieds doivent être derrière la ligne'); return null; }
         if (m.toeF < -P.maxBehindCm) { this._toWaiting(t, 'Avancez jusqu’à la ligne d’appel'); return null; }
         if (this.state === STATES.WAITING) { this.window = []; this._set(STATES.STABILIZING, t, 'Ne bougez plus…'); }
-        this.window.push({ t, toeF: m.toeF, footY: m.footY, footX: m.footX, k: m.kFoot });
+        this.window.push({ t, toeF: m.toeF, footY: m.footY, footX: m.footX, yL: m.yL, yR: m.yR, k: m.kFoot });
         while (this.window.length && t - this.window[0].t > P.stableWindowMs) this.window.shift();
         const span = this.window.length ? t - this.window[0].t : 0;
         const sdToe = std(this.window.map(w => w.toeF)), sdFoot = std(this.window.map(w => w.footY)) * m.kFoot;
         this.diag = `immobilité : pointes ±${sdToe.toFixed(1)} cm · hauteur des pieds ±${sdFoot.toFixed(1)} cm (max ${P.stableMaxStdCm.toFixed(1)})`;
         if (span >= P.stableWindowMs * 0.85 && this.window.length >= 5 && sdToe <= P.stableMaxStdCm && sdFoot <= P.stableMaxStdCm) {
-          this.ref = { toeStart: median(this.window.map(w => w.toeF)), footY: median(this.window.map(w => w.footY)),
-            footX: median(this.window.map(w => w.footX)), t1: t };
+          const med = (key) => { const v = this.window.map(w => w[key]).filter(x => x != null); return v.length ? median(v) : null; };
+          this.ref = { toeStart: med('toeF'), footY: med('footY'), footX: med('footX'), yL: med('yL'), yR: med('yR'), t1: t };
+          this.liftFrames = 0;
           this.diag = '';
           this._set(STATES.READY, t, 'Prêt — sautez !');
         }
@@ -487,7 +499,10 @@ export class LongJumpDetector {
         if (!person || !m) return null;
         // décollage : pieds levés, ou pieds qui avancent vite en commençant à se lever (début du saut)
         const advancing = m.toeF - this.ref.toeStart > 12 && m.lift.every(l => l >= 1.5);
-        if (m.lift.every(l => l >= P.takeoffFootCm) || advancing) {
+        const lifted = m.lift.every(l => l >= P.takeoffFootCm) || advancing;
+        this.liftFrames = lifted ? (this.liftFrames || 0) + 1 : 0;      // confirmé sur 2 images : pas de faux départ sur un sursaut du suivi
+        if (this.liftFrames >= 2 || (lifted && advancing)) {
+          this.liftFrames = 0;
           this.jump = { takeoffT: t, samples: 1, visSum: footVis, lostFrames: 0, landT: null, heels: [], heelPt: null, hand: false };
           this._set(STATES.JUMPING, t, 'Saut en cours…');
           return null;
@@ -520,8 +535,18 @@ export class LongJumpDetector {
           if (!feetIn) return this._reject(t, 'Pieds sortis du cadre : élargissez le champ de la caméra');
           J.samples++; J.visSum += footVis;
           if (!J.landT) {
-            if (t - J.takeoffT > P.maxFlightMs + (J.lostFrames ? P.landingLostMs : 0)) return this._reject(t, 'Durée de vol invraisemblable');
-            if (onGround && t - J.takeoffT >= P.minFlightMs && m.heelB > this.ref.toeStart + 15) { J.landT = t; J.lostAtLanding = J.lostFrames; }
+            const advanced = m.heelB > this.ref.toeStart + 15;
+            // faux décollage (sursaut du suivi, élan des bras…) : pieds toujours posés sur place → on revient à « Prêt » sans rien dire
+            if (onGround && !advanced && Math.abs(m.toeF - this.ref.toeStart) < 8) {
+              J.groundedSince ??= t;
+              if (t - J.groundedSince > 250) { this.jump = null; this._set(STATES.READY, t, 'Prêt — sautez !'); return null; }
+            } else J.groundedSince = null;
+            if (touched && advanced) J.sawAdvanced = true;
+            if (t - J.takeoffT > P.maxFlightMs + (J.lostFrames ? P.landingLostMs : 0)) {
+              return this._reject(t, J.sawAdvanced ? 'Réception mal suivie : les pieds ne se stabilisent pas au sol'
+                : 'Réception non détectée : pieds non retrouvés au sol devant la ligne');
+            }
+            if (touched && t - J.takeoffT >= P.minFlightMs && advanced) { J.landT = t; J.lostAtLanding = J.lostFrames; }
             else return null;
           }
           // après le contact : talon le plus en arrière, main posée derrière ?

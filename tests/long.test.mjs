@@ -152,6 +152,28 @@ test('pieds qui tremblent (±1,5 cm) : prêt quand même et diagnostic disponibl
   run(d, CAL_LIN, 2500, (t, ax) => { const p = makePose(ax, { toeCm: -5 + rnd() * 3 }); p.footL.y += rnd() * 9; p.footR.y += rnd() * 9; if (d.diag) diagSeen = true; return [p]; });
   assert.ok(diagSeen); assert.equal(d.state, STATES.READY, d.message + ' / ' + d.diag);
 });
+test('pied du fond mal deviné (plus haut, en retard, peu visible) : saut mesuré sur le bon pied', () => {
+  const d = new LongJumpDetector();
+  const evs = run(d, CAL_LIN, 5000, (t, ax) => {
+    const p = makePose(ax, jumpAt(ax, t));
+    p.footR = { ...p.footR, v: 0.4, y: p.footR.y - 18, x: p.footR.x - 30,
+      heel: { x: p.footR.heel.x - 30, y: p.footR.heel.y - 18 }, toe: { x: p.footR.toe.x - 30, y: p.footR.toe.y - 18 } };
+    p.footL = { ...p.footL, v: 0.95 };
+    return [p];
+  });
+  assert.equal(evs[0]?.type, 'result', JSON.stringify(evs.map(e => e.reason))); close(evs[0].valueCm, 179, 1.5);
+});
+test('faux décollage (sursaut du suivi avant le saut) : annulé sans message, puis vrai saut mesuré', () => {
+  const d = new LongJumpDetector(); let sawJumping = false;
+  const evs = run(d, CAL_LIN, 6500, (t, ax) => {
+    if (t > 1200 && t < 1300) { const p = makePose(ax, { toeCm: -5, liftCm: 6 }); return [p]; }   // 3 images « en l'air » sur place
+    if (t < 2000 && d.state === STATES.JUMPING) sawJumping = true;
+    return [makePose(ax, jumpAt(ax, t, { t0: 3000 }))];
+  });
+  assert.ok(sawJumping, 'le sursaut a bien déclenché un faux départ (sinon le test ne prouve rien)');
+  assert.equal(evs.length, 1, JSON.stringify(evs.map(e => e.reason || e.valueCm)));
+  assert.equal(evs[0].type, 'result'); close(evs[0].valueCm, 179, 1.5);
+});
 test('pieds au-delà de la ligne : jamais prêt', () => {
   const d = new LongJumpDetector();
   const evs = run(d, CAL_LIN, 3000, (t, ax) => [makePose(ax, { toeCm: 3 })]);
