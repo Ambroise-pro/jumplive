@@ -1855,6 +1855,7 @@ function updateUI(force = false) {
       s += ` | IA ${fmt(rate(perf.aiT, now), 0)}/s · ${fmt(perf.aiMs, 0)} ms`;
       const tp = lastPoses[0];
       if (tp && screen === 'session') s += ` | confiance pieds ${fmt(Math.max(tp.footL.v, tp.footR.v), 2)} · hanches ${fmt(tp.hip.v, 2)}`;
+      if (screen === 'session' && detector.state === STATES.STABILIZING && detector.diag) s += ` | ${detector.diag}`;
     }
     s += ` | tampon ${fmt(rate(perf.capT, now), 0)}/s · ${buf.frames.length} img`;
     setText(hud, s);

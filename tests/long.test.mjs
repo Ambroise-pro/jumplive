@@ -137,6 +137,21 @@ test('pieds jamais retrouvés : saut écarté avec un message clair', () => {
   const evs = run(d, CAL_LIN, 6000, (t, ax) => { const p = makePose(ax, jumpAt(ax, t)); if (t > 2000) { p.footL.v = p.footR.v = 0.05; } return [p]; });
   assert.equal(evs[0]?.type, 'rejected'); assert.match(evs[0].reason, /réception/);
 });
+test('décamètre posé à côté du couloir (sol calibré 25 px plus haut ou plus bas que les pieds) : saut mesuré', () => {
+  for (const dy of [-25, 25]) {
+    const d = new LongJumpDetector();
+    const cal = { ...CAL_LIN, p0: { x: 200, y: GROUND + dy }, p1: { x: 500, y: GROUND + dy }, p2: { x: 800, y: GROUND + dy } };
+    const evs = run(d, cal, 5000, (t) => [makePose(longAxis(CAL_LIN), jumpAt(longAxis(CAL_LIN), t))]);
+    assert.equal(evs[0]?.type, 'result', `décalage ${dy} px : ` + JSON.stringify(evs.map(e => e.reason)));
+    close(evs[0].valueCm, 179, 1.5);
+  }
+});
+test('pieds qui tremblent (±1,5 cm) : prêt quand même et diagnostic disponible', () => {
+  let sd = 7; const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647 - 0.5);
+  const d = new LongJumpDetector(); let diagSeen = false;
+  run(d, CAL_LIN, 2500, (t, ax) => { const p = makePose(ax, { toeCm: -5 + rnd() * 3 }); p.footL.y += rnd() * 9; p.footR.y += rnd() * 9; if (d.diag) diagSeen = true; return [p]; });
+  assert.ok(diagSeen); assert.equal(d.state, STATES.READY, d.message + ' / ' + d.diag);
+});
 test('pieds au-delà de la ligne : jamais prêt', () => {
   const d = new LongJumpDetector();
   const evs = run(d, CAL_LIN, 3000, (t, ax) => [makePose(ax, { toeCm: 3 })]);
